@@ -2,20 +2,27 @@ package com.example.stephan.camerapreview;
 
 import android.app.Activity;
 import android.hardware.Camera;
+import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
 
-public class CameraPreview extends Activity {
 
+public class CameraPreview extends Activity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
     private SurfaceView preview=null;
     private SurfaceHolder previewHolder=null;
     private Camera camera=null;
     private boolean inPreview=false;
     private boolean cameraConfigured=false;
+    private GoogleApiClient mGoogleApiClient;
+    private Location mLastLocation;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -27,6 +34,7 @@ public class CameraPreview extends Activity {
         previewHolder=preview.getHolder();
         previewHolder.addCallback(surfaceCallback);
         previewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        buildGoogleApiClient();
     }
 
     @Override
@@ -107,7 +115,7 @@ public class CameraPreview extends Activity {
         }
     }
 
-    SurfaceHolder.Callback surfaceCallback =new SurfaceHolder.Callback() {
+    SurfaceHolder.Callback surfaceCallback  =new SurfaceHolder.Callback() {
         public void surfaceCreated(SurfaceHolder holder) {
             // no-op -- wait until surfaceChanged()
         }
@@ -123,4 +131,34 @@ public class CameraPreview extends Activity {
             // no-op
         }
     };
+
+    public void newNavigation(View view){
+
+    }
+
+    public Location getLocation(){
+        return LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+    }
+    private synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+        mLastLocation = getLocation();
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+
+    }
 }
