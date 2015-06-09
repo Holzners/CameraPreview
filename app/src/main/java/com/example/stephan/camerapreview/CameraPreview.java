@@ -1,12 +1,14 @@
 package com.example.stephan.camerapreview;
 
 import android.app.Activity;
-import android.content.res.Configuration;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.location.Location;
 import android.os.Bundle;
-import android.view.Gravity;
+import android.util.Log;
+import android.view.Display;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
@@ -16,8 +18,6 @@ import android.widget.FrameLayout;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
-
-import java.io.IOException;
 
 
 public class CameraPreview extends Activity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -53,12 +53,6 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
     public void newNavigation(View view){
 
-
-
-
-
-
-
         FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
         frameLayout.removeView(destinationText);
         frameLayout.addView(destinationText);
@@ -92,28 +86,7 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         camera = Camera.open();
 
-        Camera.Parameters parameters=camera.getParameters();
-        if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-            mTextureView.setRotation(90.0f);
-        }
-        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            mTextureView.setRotation(0);
-        }
-
-
-        Camera.Size previewSize = getBestPreviewSize(width, height,
-                parameters);
-
-        mTextureView.setLayoutParams(new FrameLayout.LayoutParams(
-                previewSize.width, previewSize.height, Gravity.CENTER));
-        //mTextureView.setRotation(90.0f);
-
-        try {
-            camera.setPreviewTexture(surface);
-        } catch (IOException t) {
-            t.printStackTrace();
-        }
-
+        initPreview(surface, width , height);
         camera.startPreview();
 
     }
@@ -130,8 +103,6 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
             if (size.width<=width && size.height<=height) {
                 if (result==null) {
                     result=size;
-                    result.width += width-result.width;
-                    result.height += height-result.height;
                 }
                 else {
                     int resultArea=result.width*result.height;
@@ -139,14 +110,74 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
                     if (newArea>resultArea) {
                         result=size;
-                        result.width += width-result.width;
-                        result.height += height-result.height;
                     }
                 }
             }
         }
 
         return(result);
+    }
+
+    private void initPreview(SurfaceTexture surface, int width, int height) {
+        try {
+            camera.setPreviewTexture(surface);
+        } catch (Throwable t) {
+            Log.e("CameraManager", "Exception in setPreviewTexture()", t);
+        }
+
+        Camera.Parameters parameters = camera.getParameters();
+        Camera.Size previewSize = getBestPreviewSize(width, height, parameters);
+
+        float ratioSurface = width > height ? (float) width / height : (float) height / width;
+        float ratioPreview = (float) previewSize.width / previewSize.height;
+
+        int scaledHeight = 0;
+        int scaledWidth = 0;
+        float scaleX = 1f;
+        float scaleY = 1f;
+
+        Display display = getWindowManager().getDefaultDisplay();
+
+        boolean isPortrait = false;
+
+        if (previewSize != null) {
+            parameters.setPreviewSize(previewSize.width, previewSize.height);
+            if (display.getRotation() == Surface.ROTATION_0 || display.getRotation() == Surface.ROTATION_180) {
+                camera.setDisplayOrientation(display.getRotation() == Surface.ROTATION_0 ? 90 : 270);
+                isPortrait = true;
+            } else if (display.getRotation() == Surface.ROTATION_90 || display.getRotation() == Surface.ROTATION_270) {
+                camera.setDisplayOrientation(display.getRotation() == Surface.ROTATION_90 ? 0 : 180);
+                isPortrait = false;
+            }
+            if (isPortrait && ratioPreview > ratioSurface) {
+                scaledWidth = width;
+                scaledHeight = (int) (((float) previewSize.width / previewSize.height) * width);
+                scaleX = 1f;
+                scaleY = (float) scaledHeight / height;
+            } else if (isPortrait && ratioPreview < ratioSurface) {
+                scaledWidth = (int) (height / ((float) previewSize.width / previewSize.height));
+                scaledHeight = height;
+                scaleX = (float) scaledWidth / width;
+                scaleY = 1f;
+            } else if (!isPortrait && ratioPreview < ratioSurface) {
+                scaledWidth = width;
+                scaledHeight = (int) (width / ((float) previewSize.width / previewSize.height));
+                scaleX = 1f;
+                scaleY = (float) scaledHeight / height;
+            } else if (!isPortrait && ratioPreview > ratioSurface) {
+                scaledWidth = (int) (((float) previewSize.width / previewSize.height) * width);
+                scaledHeight = height;
+                scaleX = (float) scaledWidth / width;
+                scaleY = 1f;
+            }
+            camera.setParameters(parameters);
+        }
+
+        // calculate transformation matrix
+        Matrix matrix = new Matrix();
+
+        matrix.setScale(scaleX, scaleY);
+        mTextureView.setTransform(matrix);
     }
 
     @Override
