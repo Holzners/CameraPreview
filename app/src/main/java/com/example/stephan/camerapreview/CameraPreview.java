@@ -47,8 +47,9 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
         frameLayout.removeView(button);
         frameLayout.addView(button);
-
         buildGoogleApiClient();
+
+
     }
 
     public void newNavigation(View view){
@@ -59,28 +60,56 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         destinationText.setVisibility(View.VISIBLE);
     }
 
-    public Location getLocation(){
-        return LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-    }
-
     private synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
+    }
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        // Refer to the javadoc for ConnectionResult to see what error codes might be returned in
+        // onConnectionFailed.
+        Log.i("GoogleApiConnection", "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
     }
 
     @Override
     public void onConnected(Bundle bundle) {
-        mLastLocation = getLocation();
+
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+
+        if (mLastLocation != null) {
+            Log.d("CameraPreview", (String.valueOf(mLastLocation.getLatitude())));
+            Log.d("CameraPreview", (String.valueOf(mLastLocation.getLongitude())));
+        }else{
+            Log.d("CameraPreview", "Could not get Location!");
+        }
     }
 
     @Override
-    public void onConnectionSuspended(int i) {}
+    public void onConnectionSuspended(int cause) {
+        // The connection to Google Play services was lost for some reason. We call connect() to
+        // attempt to re-establish the connection.
+        Log.i("GoogleApi", "Connection suspended");
+        mGoogleApiClient.connect();
+    }
 
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {}
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
