@@ -1,6 +1,7 @@
 package com.example.stephan.camerapreview;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.location.Location;
@@ -52,6 +53,12 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
     public void newNavigation(View view){
 
+
+
+
+
+
+
         FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
         frameLayout.removeView(destinationText);
         frameLayout.addView(destinationText);
@@ -86,11 +93,20 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         camera = Camera.open();
 
         Camera.Parameters parameters=camera.getParameters();
+        if(getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+            mTextureView.setRotation(90.0f);
+        }
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            mTextureView.setRotation(0);
+        }
+
+
         Camera.Size previewSize = getBestPreviewSize(width, height,
                 parameters);
 
         mTextureView.setLayoutParams(new FrameLayout.LayoutParams(
                 previewSize.width, previewSize.height, Gravity.CENTER));
+        //mTextureView.setRotation(90.0f);
 
         try {
             camera.setPreviewTexture(surface);
@@ -102,14 +118,20 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
     }
 
-    private Camera.Size getBestPreviewSize(int width, int height,
-                                           Camera.Parameters parameters) {
+    private Camera.Size getBestPreviewSize(int width, int height, Camera.Parameters parameters) {
+
         Camera.Size result=null;
 
         for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
+
+            // printing for debugging
+            System.out.println("width: "+size.width+", height: "+size.height+"\n");
+
             if (size.width<=width && size.height<=height) {
                 if (result==null) {
                     result=size;
+                    result.width += width-result.width;
+                    result.height += height-result.height;
                 }
                 else {
                     int resultArea=result.width*result.height;
@@ -117,6 +139,8 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
                     if (newArea>resultArea) {
                         result=size;
+                        result.width += width-result.width;
+                        result.height += height-result.height;
                     }
                 }
             }
