@@ -9,6 +9,7 @@ import android.view.Gravity;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -25,14 +26,16 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
     private TextureView mTextureView;
+    private EditText destinationText;
 
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_camera_preview);
+
+        destinationText = (EditText)findViewById(R.id.editText);
+        destinationText.setVisibility(View.GONE);
 
         FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
         mTextureView = new TextureView(this);
@@ -49,6 +52,10 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
     public void newNavigation(View view){
 
+        FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
+        frameLayout.removeView(destinationText);
+        frameLayout.addView(destinationText);
+        destinationText.setVisibility(View.VISIBLE);
     }
 
     public Location getLocation(){
