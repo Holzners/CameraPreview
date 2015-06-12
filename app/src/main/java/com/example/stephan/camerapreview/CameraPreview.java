@@ -2,9 +2,11 @@ package com.example.stephan.camerapreview;
 
 import android.app.Activity;
 import android.graphics.Matrix;
+import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.location.Location;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Display;
@@ -28,7 +30,13 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private Location mLastLocation;
     private TextureView mTextureView;
     private EditText destinationText;
-
+    private GLSurfaceView mGLSurfaceView;
+    private float vertices[]  = {
+                -1.0f,  1.0f, -1.0f,  //
+                -1.0f, -1.0f, 1.0f,  //
+                1.0f, 2.0f, 2.0f,  //
+    };
+    private OpenGLRenderer renderer;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,10 +53,19 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         frameLayout.addView(mTextureView);
         Button button = (Button) findViewById(R.id.navigationButton);
         button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
+
+        buildGoogleApiClient();
+        this.renderer = new OpenGLRenderer();
+        renderer.setPath(new Path(vertices));
+
+        mGLSurfaceView = new GLSurfaceView(this);
+        mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
+        mGLSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        mGLSurfaceView.setRenderer(renderer);
+        mGLSurfaceView.setZOrderOnTop(true);
+        frameLayout.addView(mGLSurfaceView);
         frameLayout.removeView(button);
         frameLayout.addView(button);
-        buildGoogleApiClient();
-
 
     }
 
