@@ -32,4 +32,5 @@ dependencies {
     }
     compile 'com.google.apis:google-api-services-drive:v2-rev105-1.17.0-rc'
     compile 'com.google.http-client:google-http-client-jackson:1.15.0-rc'
+    compile 'com.google.maps.android:android-maps-utils:0.3+'
 }

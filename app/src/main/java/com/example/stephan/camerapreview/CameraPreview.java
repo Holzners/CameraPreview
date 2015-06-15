@@ -36,6 +36,8 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
                 -1.0f, -1.0f, 1.0f,  //
                 1.0f, 2.0f, 2.0f,  //
     };
+    private boolean isNewNavigationTextUp = false;
+
     private OpenGLRenderer renderer;
    // private SensorManager sensorManager;
    // private float[] rotationMatrix;
@@ -77,11 +79,19 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     }
 
     public void newNavigation(View view){
-
-        FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
-        frameLayout.removeView(destinationText);
-        frameLayout.addView(destinationText);
-        destinationText.setVisibility(View.VISIBLE);
+        if(!isNewNavigationTextUp) {
+            FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
+            frameLayout.removeView(destinationText);
+            frameLayout.addView(destinationText);
+            destinationText.setVisibility(View.VISIBLE);
+            isNewNavigationTextUp = true;
+        }else{
+            String myLocation = "Frauenkirche, München";
+            DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString());
+            destinationText.setVisibility(View.GONE);
+            isNewNavigationTextUp = false;
+            directionFetcher.execute();
+        }
     }
 
     private synchronized void buildGoogleApiClient() {
