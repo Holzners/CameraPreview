@@ -2,6 +2,7 @@ package com.example.stephan.camerapreview;
 
 import android.opengl.GLSurfaceView.Renderer;
 import android.opengl.GLU;
+import android.util.Log;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -9,7 +10,10 @@ import javax.microedition.khronos.opengles.GL10;
 public class OpenGLRenderer implements Renderer {
 
 	private Path path;
-	
+
+	protected static float[] rotationMatrix;
+	protected static float[] orientation;
+
 	public OpenGLRenderer() {
 		// Initialize our square.
 	}
@@ -22,17 +26,6 @@ public class OpenGLRenderer implements Renderer {
 	 */
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
 		// Set the background color to black ( rgba ).
-		//gl.glClearColor(0,0,0,0);
-		// Enable Smooth Shading, default not really needed.
-		//gl.glShadeModel(GL10.GL_SMOOTH);
-		// Depth buffer setup.
-		//gl.glClearDepthf(1.0f);
-		// Enables depth testing.
-		//gl.glEnable(GL10.GL_DEPTH_TEST);
-		// The type of depth testing to do.
-		//gl.glDepthFunc(GL10.GL_LEQUAL);
-		// Really nice perspective calculations.
-		//gl.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_NICEST);
 
 		gl.glDisable(GL10.GL_DITHER);
 		gl.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT,
@@ -52,12 +45,37 @@ public class OpenGLRenderer implements Renderer {
 	 * khronos.opengles.GL10)
 	 */
 	public void onDrawFrame(GL10 gl) {
-		// Clears the screen and depth buffer.
+
+        if(orientation!= null) {
+            float pi = (float) Math.PI;
+            float rad2deg = 180 / pi;
+
+            if (rotationMatrix != null) gl.glLoadMatrixf(rotationMatrix, 0);
+            // Get the pitch, yaw and roll from the sensor.
+
+            float yaw = orientation[0] * rad2deg;
+            float pitch = orientation[1] * rad2deg;
+            float roll = orientation[2] * rad2deg;
+
+            // Convert pitch, yaw and roll to a vector
+
+            float x = (float) (Math.cos(yaw) * Math.cos(pitch));
+            float y = (float) (Math.sin(yaw) * Math.cos(pitch));
+            float z = (float) (Math.sin(pitch));
+
+            Log.d("Yaw", yaw + "");
+            Log.d("Roll", roll + "");
+            Log.d("Pitch", pitch + "");
+
+            GLU.gluLookAt(gl, 0.0f, 0.0f, 0.0f, x, y, z, 0.0f, 1.0f, 0.0f);
+            gl.glPushMatrix();
+        }
+        // Clears the screen and depth buffer.
 		gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
 		// Replace the current matrix with the identity matrix
 		gl.glLoadIdentity();
 		// Translates 4 units into the screen.
-		gl.glTranslatef(0, 0, -4);
+		gl.glTranslatef(0, 0, -10);
 		// Draw our Polynom.
 		path.draw(gl);
 	}

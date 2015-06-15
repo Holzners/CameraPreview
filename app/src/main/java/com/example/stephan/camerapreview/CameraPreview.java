@@ -13,8 +13,8 @@ import android.view.Display;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -29,7 +29,7 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
     private TextureView mTextureView;
-    private EditText destinationText;
+    private AutoCompleteTextView destinationText;
     private GLSurfaceView mGLSurfaceView;
     private float vertices[]  = {
                 -1.0f,  1.0f, -1.0f,  //
@@ -37,14 +37,21 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
                 1.0f, 2.0f, 2.0f,  //
     };
     private OpenGLRenderer renderer;
+   // private SensorManager sensorManager;
+   // private float[] rotationMatrix;
+   // private Sensor accSensor;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera_preview);
 
-        destinationText = (EditText)findViewById(R.id.editText);
-        destinationText.setVisibility(View.GONE);
+        buildGoogleApiClient();
+
+        destinationText = (AutoCompleteTextView)findViewById(R.id.editText);
+        //destinationText.setVisibility(View.GONE);
+
+        destinationText.setAdapter(new PlacesAutoCompleteAdapter(this, android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
 
         FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
         mTextureView = new TextureView(this);
@@ -54,7 +61,7 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         Button button = (Button) findViewById(R.id.navigationButton);
         button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
 
-        buildGoogleApiClient();
+
         this.renderer = new OpenGLRenderer();
         renderer.setPath(new Path(vertices));
 
@@ -123,7 +130,6 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     public void onConnectionSuspended(int cause) {
         // The connection to Google Play services was lost for some reason. We call connect() to
         // attempt to re-establish the connection.
-        Log.i("GoogleApi", "Connection suspended");
         mGoogleApiClient.connect();
     }
 
@@ -242,4 +248,5 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
 
     }
+
 }
