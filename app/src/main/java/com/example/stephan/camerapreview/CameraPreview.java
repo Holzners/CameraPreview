@@ -318,7 +318,15 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
        */
         if (mLastAccelerometerSet && mLastMagnetometerSet) {
             SensorManager.getRotationMatrix(mR, null, mLastAccelerometer, mLastMagnetometer);
+            SensorManager.remapCoordinateSystem(mR, SensorManager.AXIS_X, SensorManager.AXIS_Z, mR);
             SensorManager.getOrientation(mR, mOrientation);
+
+            if(OpenGLRenderer.orientation == null) OpenGLRenderer.orientation = new float[3];
+            if(OpenGLRenderer.rotationMatrix == null) OpenGLRenderer.rotationMatrix = new float[16];
+            OpenGLRenderer.orientation = mOrientation;
+            OpenGLRenderer.rotationMatrix = mR;
+
+
             float azimuthInRadians = mOrientation[0];
             float azimuthInDegress = (float)(Math.toDegrees(azimuthInRadians)+360)%360;
             RotateAnimation ra = new RotateAnimation(

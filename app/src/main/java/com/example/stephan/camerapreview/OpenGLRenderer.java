@@ -16,9 +16,6 @@ public class OpenGLRenderer implements Renderer {
 	protected static float[] rotationMatrix;
 	protected static float[] orientation;
 
-	public OpenGLRenderer() {
-		// Initialize our square.
-	}
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -48,11 +45,17 @@ public class OpenGLRenderer implements Renderer {
 	 */
 	public void onDrawFrame(GL10 gl) {
 
+
+        gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
+        gl.glLoadIdentity();
+        gl.glTranslatef(0, 0, -10);
+
         if(orientation!= null) {
             float pi = (float) Math.PI;
             float rad2deg = 180 / pi;
 
             if (rotationMatrix != null) gl.glLoadMatrixf(rotationMatrix, 0);
+            gl.glPushMatrix();
             // Get the pitch, yaw and roll from the sensor.
 
             float yaw = orientation[0] * rad2deg;
@@ -69,16 +72,13 @@ public class OpenGLRenderer implements Renderer {
             Log.d("Roll", roll + "");
             Log.d("Pitch", pitch + "");
 
-            GLU.gluLookAt(gl, 0.0f, 0.0f, 0.0f, x, y, z, 0.0f, 1.0f, 0.0f);
+            GLU.gluLookAt(gl, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
+            gl.glRotatef(yaw, 1.0f, 0.0f, 0.0f);
+            gl.glRotatef(roll, 0.0f, 1.0f, 0.0f);
+            gl.glRotatef(pitch, 0.0f, 0.0f, 1.0f);
             gl.glPushMatrix();
         }
-        // Clears the screen and depth buffer.
-		gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
-		// Replace the current matrix with the identity matrix
-		gl.glLoadIdentity();
-		// Translates 4 units into the screen.
-		gl.glTranslatef(0, 0, -10);
-		// Draw our Polynom.
+
 		path.draw(gl);
 	}
 
