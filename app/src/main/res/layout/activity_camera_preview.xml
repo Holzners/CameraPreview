@@ -7,7 +7,12 @@
     android:id="@+id/contentPanel"
     tools:context=".CameraPreview">
 
-    <SurfaceView android:id="@+id/preview"
+    <TextureView android:id="@+id/preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <android.opengl.GLSurfaceView
+        android:id="@+id/glSurfaceView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
@@ -29,6 +34,14 @@
         android:layout_gravity="center"
         android:completionThreshold="3"
         android:background="#50D3D3D3" />
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:id="@+id/imageView"
+        android:layout_gravity="right|top"
+        android:src="@drawable/pointer"
+       />
 
 
 </FrameLayout>
