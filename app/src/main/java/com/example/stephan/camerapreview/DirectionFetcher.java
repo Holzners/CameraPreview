@@ -32,10 +32,10 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
     static final JsonFactory JSON_FACTORY = new JacksonFactory();
     static final String HTTP_REQUEST ="http://maps.googleapis.com/maps/api/directions/json";
 
-    private String origin;
+    private LatLng origin;
     private String destination;
 
-    public DirectionFetcher(String origin , String destination) {
+    public DirectionFetcher(LatLng origin , String destination) {
         this.destination = destination;
         this.origin = origin;
     }
@@ -51,14 +51,16 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
             });
 
             GenericUrl url = new GenericUrl(HTTP_REQUEST);
-            url.put("origin", origin);
+            url.put("origin", origin.latitude + "," + origin.longitude);
             url.put("destination", destination);
             url.put("sensor",false);
+            url.put("mode", "walking");
 
             HttpRequest request = requestFactory.buildGetRequest(url);
+
             HttpResponse httpResponse = request.execute();
             DirectionsResult directionsResult = httpResponse.parseAs(DirectionsResult.class);
-            String encodedPoints = directionsResult.routes.get(0).overviewPolyLine.points;
+                String encodedPoints = directionsResult.routes.get(0).overviewPolyLine.points;
             latLngs = PolyUtil.decode(encodedPoints);
 
             for(LatLng ll :latLngs){

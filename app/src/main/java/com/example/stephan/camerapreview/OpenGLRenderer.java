@@ -4,6 +4,8 @@ import android.opengl.GLSurfaceView.Renderer;
 import android.opengl.GLU;
 import android.util.Log;
 
+import com.google.android.gms.maps.model.LatLng;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -106,4 +108,11 @@ public class OpenGLRenderer implements Renderer {
 	public void setPath(Path path) {
 		this.path = path;
 	}
+
+	public float[] transformLatLngToOpenGL(LatLng latLng){
+      //  X = (lat / 1) * ( (min(w,h) / 2) / tan(α) ) and Y = (lng / 1) * ( (min(w,h) / 2) / tan(α)
+
+        return null;
+	}
+
 }

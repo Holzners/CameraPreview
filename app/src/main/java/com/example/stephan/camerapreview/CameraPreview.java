@@ -20,6 +20,7 @@ import android.widget.FrameLayout;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.model.LatLng;
 
 
 public class CameraPreview extends Activity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -86,7 +87,8 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
             destinationText.setVisibility(View.VISIBLE);
             isNewNavigationTextUp = true;
         }else{
-            String myLocation = "Frauenkirche, München";
+
+            LatLng myLocation = new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude());
             DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString());
             destinationText.setVisibility(View.GONE);
             isNewNavigationTextUp = false;
