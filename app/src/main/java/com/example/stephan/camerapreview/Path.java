@@ -7,7 +7,11 @@ import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.opengles.GL10;
 
-public class Path {	// Our vertices.
+public class Path {
+
+
+
+	// Our vertices.
 	private float vertices[];
 	
 	// The order we like to connect them.

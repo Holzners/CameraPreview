@@ -1,8 +1,8 @@
 package com.example.stephan.camerapreview;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Sensor;
@@ -10,7 +10,6 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Display;
@@ -29,6 +28,11 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 
+import org.rajawali3d.surface.IRajawaliSurface;
+import org.rajawali3d.surface.RajawaliSurfaceView;
+
+import java.util.List;
+
 
 public class CameraPreview extends Activity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
                                                     TextureView.SurfaceTextureListener, SensorEventListener {
@@ -38,7 +42,9 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private Location mLastLocation;
     private TextureView mTextureView;
     private AutoCompleteTextView destinationText;
-    private GLSurfaceView mGLSurfaceView;
+    //private GLSurfaceView mGLSurfaceView;
+
+    private RajawaliSurfaceView surface;
 
     private ImageView mPointer;
     private SensorManager mSensorManager;
@@ -54,15 +60,13 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private float[] mOrientation = new float[3];
     private float mCurrentDegree = 0f;
 
-
-    private float vertices[]  = {
-                -0.0f,  0.0f, -0.2f,  //
-                -0.1f, -0.2f, 0.0f,  //
-                0.3f, -0.4f, 0.1f,  //
-    };
     private boolean isNewNavigationTextUp = false;
 
-    private OpenGLRenderer renderer;
+    //private OpenGLRenderer renderer;
+
+    private MyRajawaliRenderer mRenderer;
+
+    private List<LatLng> latLngs;
 
 
     @Override
@@ -72,7 +76,8 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
         mPointer = (ImageView) findViewById(R.id.imageView);
         mTextureView = (TextureView) findViewById(R.id.preview);
-        mGLSurfaceView = (GLSurfaceView) findViewById(R.id.glSurfaceView);
+       // mGLSurfaceView = (GLSurfaceView) findViewById(R.id.glSurfaceView);
+        surface = (RajawaliSurfaceView) findViewById(R.id.surfaceView);
         destinationText = (AutoCompleteTextView)findViewById(R.id.editText);
 
         buildGoogleApiClient();
@@ -86,16 +91,21 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
         button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
 
 
-        this.renderer = new OpenGLRenderer();
-        renderer.setPath(new Path(vertices));
+        mRenderer = new MyRajawaliRenderer(this);
+       // this.renderer = new OpenGLRenderer();
 
-        mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-        mGLSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
-        mGLSurfaceView.setRenderer(renderer);
-        mGLSurfaceView.setZOrderOnTop(true);
+       // mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
+       // mGLSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+       // mGLSurfaceView.setRenderer(mRenderer);
+       // mGLSurfaceView.setZOrderOnTop(true);
+
+        surface.setFrameRate(60.0);
+        surface.setRenderMode(IRajawaliSurface.RENDERMODE_WHEN_DIRTY);
+        surface.setSurfaceRenderer(mRenderer);
+        surface.setBackgroundColor(Color.TRANSPARENT);
 
         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
 
@@ -103,14 +113,16 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-        mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mRenderer.startSensorListening();
     }
     @Override
     protected void onPause() {
         super.onPause();
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
+        mRenderer.stopSensorListener();
     }
 
 
@@ -125,7 +137,7 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
             LatLng myLocation = new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude());
 
-            DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString());
+            DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString(), this);
 
             destinationText.setVisibility(View.GONE);
             isNewNavigationTextUp = false;
@@ -198,9 +210,6 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
         for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
 
-            // printing for debugging
-            System.out.println("width: "+size.width+", height: "+size.height+"\n");
-
             if (size.width<=width && size.height<=height) {
                 if (result==null) {
                     result=size;
@@ -251,23 +260,19 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
                 isPortrait = false;
             }
             if (isPortrait && ratioPreview > ratioSurface) {
-                scaledWidth = width;
                 scaledHeight = (int) (((float) previewSize.width / previewSize.height) * width);
                 scaleX = 1f;
                 scaleY = (float) scaledHeight / height;
             } else if (isPortrait && ratioPreview < ratioSurface) {
                 scaledWidth = (int) (height / ((float) previewSize.width / previewSize.height));
-                scaledHeight = height;
                 scaleX = (float) scaledWidth / width;
                 scaleY = 1f;
             } else if (!isPortrait && ratioPreview < ratioSurface) {
-                scaledWidth = width;
                 scaledHeight = (int) (width / ((float) previewSize.width / previewSize.height));
                 scaleX = 1f;
                 scaleY = (float) scaledHeight / height;
             } else if (!isPortrait && ratioPreview > ratioSurface) {
                 scaledWidth = (int) (((float) previewSize.width / previewSize.height) * width);
-                scaledHeight = height;
                 scaleX = (float) scaledWidth / width;
                 scaleY = 1f;
             }
@@ -301,30 +306,25 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (event.sensor == mAccelerometer) {
 
+
+        if (event.sensor == mAccelerometer) {
+            mLastAccelerometer = lowPass(event.values.clone(), mLastAccelerometer);
             // arraycopy (source, IndexBegin, target, IndexBegin, length)
-            System.arraycopy(event.values, 0, mLastAccelerometer, 0, event.values.length);
+
             mLastAccelerometerSet = true;
             // catches changes registered by the Magnetometer
         } else if (event.sensor == mMagnetometer) {
-            System.arraycopy(event.values, 0, mLastMagnetometer, 0, event.values.length);
+            mLastMagnetometer = lowPass(event.values.clone(), mLastMagnetometer);
             mLastMagnetometerSet = true;
         }
-
-
         /*
         * RotationMatrix, Conversion to rotation of the 2-dimensional arrow
        */
         if (mLastAccelerometerSet && mLastMagnetometerSet) {
-            SensorManager.getRotationMatrix(mR, null, mLastAccelerometer, mLastMagnetometer);
+            SensorManager.getRotationMatrix(mR, event.values.clone(), mLastAccelerometer, mLastMagnetometer);
             SensorManager.remapCoordinateSystem(mR, SensorManager.AXIS_X, SensorManager.AXIS_Z, mR);
             SensorManager.getOrientation(mR, mOrientation);
-
-            if(OpenGLRenderer.orientation == null) OpenGLRenderer.orientation = new float[3];
-            if(OpenGLRenderer.rotationMatrix == null) OpenGLRenderer.rotationMatrix = new float[16];
-            OpenGLRenderer.orientation = mOrientation;
-            OpenGLRenderer.rotationMatrix = mR;
 
 
             float azimuthInRadians = mOrientation[0];
@@ -343,6 +343,7 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
                 mPointer.startAnimation(ra);
                 mCurrentDegree = -azimuthInDegress;
             }
+
         }
 
     }
@@ -350,5 +351,21 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+        private float[] lowPass( float[] input, float[] output ) {
+            final float ALPHA = 0.1f;
+
+            if ( output == null ) return input;
+
+            for ( int i=0; i<input.length; i++ ) {
+                if(Math.abs(Math.toDegrees(output[i])-Math.toDegrees(input[i]))> 9)
+                output[i] = output[i] + ALPHA * (input[i] - output[i]);
+            }
+            return output;
+        }
+
+    public void setLatLng (List<LatLng> latLngs){
+        this.latLngs = latLngs;
     }
 }
