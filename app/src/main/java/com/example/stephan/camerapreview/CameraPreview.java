@@ -343,6 +343,11 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
                 mCurrentDegree = -azimuthInDegress;
             }
 
+            // Hier: Rotation Cemra / View
+            // Camera-Pos + LookAt!
+            //mRenderer.getCurrentCamera().setPosition(0, 0, 0);
+            //mRenderer.getCurrentCamera().setLookAt(SensorManager.AXIS_X, SensorManager.AXIS_Y, 0);
+
         }
 
     }

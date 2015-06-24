@@ -91,6 +91,7 @@ public class MyRajawaliRenderer extends RajawaliRenderer implements SensorEventL
     @Override
     protected void initScene() {
         mLight = new DirectionalLight(0,0,1);
+        mLight.setPower(4);
         this.scene = getCurrentScene();
         scene.setBackgroundColor(0.0f,0.0f,0.0f,0.0f);
 
@@ -113,7 +114,7 @@ public class MyRajawaliRenderer extends RajawaliRenderer implements SensorEventL
         points.add(new Vector3(2, 0, 0));
         points.add(new Vector3(4, 0, 0));
         points.add(new Vector3(2, 2, 0));
-        points.add(new Vector3(2, 0, 6));
+        points.add(new Vector3(2, 0, 0));
 
         Line3D line = new Line3D(points, 1, context.getResources().getColor(R.color.red));
         line.setLineThickness(15);
