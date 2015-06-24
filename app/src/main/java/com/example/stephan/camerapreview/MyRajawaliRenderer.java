@@ -2,14 +2,18 @@ package com.example.stephan.camerapreview;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.SurfaceTexture;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.MediaPlayer;
 import android.util.Log;
 import android.view.MotionEvent;
 
 import org.rajawali3d.Camera;
+import org.rajawali3d.lights.ALight;
+import org.rajawali3d.lights.DirectionalLight;
 import org.rajawali3d.materials.Material;
 import org.rajawali3d.math.vector.Vector3;
 import org.rajawali3d.primitives.Line3D;
@@ -57,6 +61,11 @@ public class MyRajawaliRenderer extends RajawaliRenderer implements SensorEventL
     public static final float FILTER_COEFFICIENT = 0.98f;
     private Timer fuseTimer = new Timer();
 
+    // <NEW>
+    private ALight mLight;
+    private MediaPlayer myMediaPlayer;
+    private SurfaceTexture mTexture;
+    // </NEW>
 
 
     SensorManager mSensorManager;
@@ -81,13 +90,16 @@ public class MyRajawaliRenderer extends RajawaliRenderer implements SensorEventL
 
     @Override
     protected void initScene() {
+        mLight = new DirectionalLight(0,0,1);
         this.scene = getCurrentScene();
         scene.setBackgroundColor(0.0f,0.0f,0.0f,0.0f);
 
+
         mCamera = new Camera();
-        mCamera.setPosition(0, 0, -5);
+        mCamera.setPosition(0, 0, -17);
         mCamera.setLookAt(0, 0, 0);
         scene.addCamera(mCamera);
+
         drawLine();
         mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         initListeners();

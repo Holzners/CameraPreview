@@ -1,7 +1,6 @@
 package com.example.stephan.camerapreview;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
@@ -42,12 +41,13 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
     private Location mLastLocation;
     private TextureView mTextureView;
     private AutoCompleteTextView destinationText;
+
     //private GLSurfaceView mGLSurfaceView;
 
     private RajawaliSurfaceView surface;
-
     private ImageView mPointer;
     private SensorManager mSensorManager;
+
     // SensorManager provides RotationMatrix etc.
 
     private Sensor mAccelerometer;
@@ -87,29 +87,28 @@ public class CameraPreview extends Activity implements GoogleApiClient.Connectio
 
         mTextureView.setSurfaceTextureListener(this);
 
+
         Button button = (Button) findViewById(R.id.navigationButton);
         button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
 
 
         mRenderer = new MyRajawaliRenderer(this);
-       // this.renderer = new OpenGLRenderer();
-
-       // mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-       // mGLSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
-       // mGLSurfaceView.setRenderer(mRenderer);
-       // mGLSurfaceView.setZOrderOnTop(true);
-
         surface.setFrameRate(60.0);
         surface.setRenderMode(IRajawaliSurface.RENDERMODE_WHEN_DIRTY);
         surface.setSurfaceRenderer(mRenderer);
-        surface.setBackgroundColor(Color.TRANSPARENT);
+
+        // Hintergrund transparent
+        surface.setZOrderOnTop(true);
 
         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
 
+
     }
+
+
     @Override
     protected void onResume() {
         super.onResume();
