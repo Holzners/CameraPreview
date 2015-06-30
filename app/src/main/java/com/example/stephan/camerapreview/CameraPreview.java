@@ -1,13 +1,10 @@
 package com.example.stephan.camerapreview;
 
-import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -22,11 +19,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
-import com.beyondar.android.util.location.BeyondarLocationManager;
 import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -77,6 +75,8 @@ public class CameraPreview extends FragmentActivity implements
     private HashMap<Location, GeoObject> locationGeoObjectHashMap;
     private TextView collectedText;
 
+    LocationRequest locationRequest;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
@@ -104,9 +104,12 @@ public class CameraPreview extends FragmentActivity implements
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.ic_marker);
 
-        BeyondarLocationManager.setLocationManager((LocationManager) this.getSystemService(Context.LOCATION_SERVICE));
-        BeyondarLocationManager.addLocationListener(this);
-        BeyondarLocationManager.addWorldLocationUpdate(world);
+        locationRequest = LocationRequest.create();
+        locationRequest.setInterval(500);
+        locationRequest.setFastestInterval(100);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setSmallestDisplacement(10);
+
         locationGeoObjectHashMap = new HashMap<>();
 
         collectedText = (TextView) findViewById(R.id.pointText);
@@ -120,7 +123,7 @@ public class CameraPreview extends FragmentActivity implements
         super.onResume();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
-        BeyondarLocationManager.enable();
+        if(mGoogleApiClient.isConnected())startLocationUpdate();
     }
 
     @Override
@@ -128,7 +131,8 @@ public class CameraPreview extends FragmentActivity implements
         super.onPause();
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
-        BeyondarLocationManager.disable();
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, this);
     }
 
 
@@ -148,6 +152,8 @@ public class CameraPreview extends FragmentActivity implements
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
+
+
 
     }
 
@@ -175,6 +181,7 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     public void onConnected(Bundle bundle) {
 
+        startLocationUpdate();
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
 
         if (mLastLocation != null) {
@@ -182,9 +189,15 @@ public class CameraPreview extends FragmentActivity implements
             Log.d("CameraPreview", (String.valueOf(mLastLocation.getLongitude())));
             world.setLocation(mLastLocation);
 
+
         } else {
             Log.d("CameraPreview", "Could not get Location!");
         }
+    }
+
+    private void startLocationUpdate(){
+        LocationServices.FusedLocationApi.
+                requestLocationUpdates(mGoogleApiClient, locationRequest, this);
     }
 
     @Override
@@ -193,8 +206,6 @@ public class CameraPreview extends FragmentActivity implements
         // attempt to re-establish the connection.
         mGoogleApiClient.connect();
     }
-
-
 
 
 
@@ -354,6 +365,7 @@ public class CameraPreview extends FragmentActivity implements
     public void onLocationChanged(Location location) {
         Log.d("New Location" , location.getLatitude() +" " + location.getLongitude());
         mLastLocation = location;
+        world.setLocation(location);
        if(locationsList != null) {
            int index = -1;
            for (int i = 0; i < 10; i++) {
@@ -374,20 +386,6 @@ public class CameraPreview extends FragmentActivity implements
        }
     }
 
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-
-    }
 
     @Override
     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
