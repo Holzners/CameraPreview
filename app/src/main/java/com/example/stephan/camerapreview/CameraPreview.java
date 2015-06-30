@@ -1,22 +1,17 @@
 package com.example.stephan.camerapreview;
 
-import android.graphics.Matrix;
-import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
+import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
-import android.view.Display;
-import android.view.Surface;
-import android.view.TextureView;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
@@ -24,8 +19,10 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
+import com.beyondar.android.util.location.BeyondarLocationManager;
 import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
 import com.google.android.gms.common.ConnectionResult;
@@ -45,22 +42,20 @@ import org.apache.http.protocol.HttpContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 
-public class CameraPreview extends FragmentActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        TextureView.SurfaceTextureListener, SensorEventListener {
+public class CameraPreview extends FragmentActivity implements
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
+        SensorEventListener, LocationListener,
+        TextView.OnEditorActionListener{
 
-    private Camera camera = null;
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
-    private LocationManager mLocationManager;
-    private TextureView mTextureView;
     private AutoCompleteTextView destinationText;
-    private String provider;
     private ImageView mPointer;
     private SensorManager mSensorManager;
-    private LocationListener mLocationListener;
     private Sensor mAccelerometer;
     private Sensor mMagnetometer;
     private float[] mLastAccelerometer = new float[3];
@@ -70,15 +65,17 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
     private float[] mR = new float[9];
     private float[] mOrientation = new float[3];
     private float mCurrentDegree = 0f;
+    int countSelected = 0;
+    int countToSelect = 0;
 
     private boolean isNewNavigationTextUp = false;
 
-    //private OpenGLRenderer renderer;
-
     private List<Location> locationsList;
-    World world;
+    private World world;
 
-    BeyondarFragmentSupport mBeyondarFragment;
+    private BeyondarFragmentSupport mBeyondarFragment;
+    private HashMap<Location, GeoObject> locationGeoObjectHashMap;
+    private TextView collectedText;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -87,16 +84,12 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
         setContentView(R.layout.activity_camera_preview);
 
         mPointer = (ImageView) findViewById(R.id.imageView);
-        mTextureView = (TextureView) findViewById(R.id.preview);
-        // mGLSurfaceView = (GLSurfaceView) findViewById(R.id.glSurfaceView);
         destinationText = (AutoCompleteTextView) findViewById(R.id.editText);
 
         buildGoogleApiClient();
         destinationText.setVisibility(View.GONE);
-
+        destinationText.setOnEditorActionListener(this);
         destinationText.setAdapter(new PlacesAutoCompleteAdapter(this, android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
-
-        mTextureView.setSurfaceTextureListener(this);
 
         mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
 
@@ -107,14 +100,18 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
-        Criteria criteria = new Criteria();
-        mLocationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
-        provider = mLocationManager.getBestProvider(criteria, false);
-        //mLastLocation = mLocationManager.getLastKnownLocation(provider);
-        mLocationListener = new CPLocationListener();
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.ic_marker);
+
+        BeyondarLocationManager.setLocationManager((LocationManager) this.getSystemService(Context.LOCATION_SERVICE));
+        BeyondarLocationManager.addLocationListener(this);
+        BeyondarLocationManager.addWorldLocationUpdate(world);
+        locationGeoObjectHashMap = new HashMap<>();
+
+        collectedText = (TextView) findViewById(R.id.pointText);
+        collectedText.setVisibility(View.VISIBLE);
+
     }
 
 
@@ -123,8 +120,7 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
         super.onResume();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
-        mLocationManager.requestLocationUpdates(provider, 40000, 1, mLocationListener);
-
+        BeyondarLocationManager.enable();
     }
 
     @Override
@@ -132,8 +128,7 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
         super.onPause();
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
-        mLocationManager.requestLocationUpdates(provider, 40000, 1, mLocationListener);
-        camera.release();
+        BeyondarLocationManager.disable();
     }
 
 
@@ -144,15 +139,6 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
             frameLayout.addView(destinationText);
             destinationText.setVisibility(View.VISIBLE);
             isNewNavigationTextUp = true;
-        } else {
-
-            LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-
-            DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString(), this);
-
-            destinationText.setVisibility(View.GONE);
-            isNewNavigationTextUp = false;
-            directionFetcher.execute();
         }
     }
 
@@ -209,112 +195,7 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
     }
 
 
-    @Override
-    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-//        camera = Camera.open();
 
-        //initPreview(surface, width , height);
-        //    camera.startPreview();
-
-    }
-
-    private Camera.Size getBestPreviewSize(int width, int height, Camera.Parameters parameters) {
-
-        Camera.Size result = null;
-
-        for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
-
-            if (size.width <= width && size.height <= height) {
-                if (result == null) {
-                    result = size;
-                } else {
-                    int resultArea = result.width * result.height;
-                    int newArea = size.width * size.height;
-
-                    if (newArea > resultArea) {
-                        result = size;
-                    }
-                }
-            }
-        }
-
-        return (result);
-    }
-
-    private void initPreview(SurfaceTexture surface, int width, int height) {
-        try {
-            camera.setPreviewTexture(surface);
-        } catch (Throwable t) {
-            Log.e("CameraManager", "Exception in setPreviewTexture()", t);
-        }
-
-        Camera.Parameters parameters = camera.getParameters();
-        Camera.Size previewSize = getBestPreviewSize(width, height, parameters);
-
-        float ratioSurface = width > height ? (float) width / height : (float) height / width;
-        float ratioPreview = (float) previewSize.width / previewSize.height;
-
-        int scaledHeight = 0;
-        int scaledWidth = 0;
-        float scaleX = 1f;
-        float scaleY = 1f;
-
-        Display display = getWindowManager().getDefaultDisplay();
-
-        boolean isPortrait = false;
-
-        if (previewSize != null) {
-            parameters.setPreviewSize(previewSize.width, previewSize.height);
-            if (display.getRotation() == Surface.ROTATION_0 || display.getRotation() == Surface.ROTATION_180) {
-                camera.setDisplayOrientation(display.getRotation() == Surface.ROTATION_0 ? 90 : 270);
-                isPortrait = true;
-            } else if (display.getRotation() == Surface.ROTATION_90 || display.getRotation() == Surface.ROTATION_270) {
-                camera.setDisplayOrientation(display.getRotation() == Surface.ROTATION_90 ? 0 : 180);
-                isPortrait = false;
-            }
-            if (isPortrait && ratioPreview > ratioSurface) {
-                scaledHeight = (int) (((float) previewSize.width / previewSize.height) * width);
-                scaleX = 1f;
-                scaleY = (float) scaledHeight / height;
-            } else if (isPortrait && ratioPreview < ratioSurface) {
-                scaledWidth = (int) (height / ((float) previewSize.width / previewSize.height));
-                scaleX = (float) scaledWidth / width;
-                scaleY = 1f;
-            } else if (!isPortrait && ratioPreview < ratioSurface) {
-                scaledHeight = (int) (width / ((float) previewSize.width / previewSize.height));
-                scaleX = 1f;
-                scaleY = (float) scaledHeight / height;
-            } else if (!isPortrait && ratioPreview > ratioSurface) {
-                scaledWidth = (int) (((float) previewSize.width / previewSize.height) * width);
-                scaleX = (float) scaledWidth / width;
-                scaleY = 1f;
-            }
-            camera.setParameters(parameters);
-        }
-
-        // calculate transformation matrix
-        Matrix matrix = new Matrix();
-
-        matrix.setScale(scaleX, scaleY);
-        mTextureView.setTransform(matrix);
-    }
-
-    @Override
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-
-    }
-
-    @Override
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        camera.stopPreview();
-        camera.release();
-        return true;
-    }
-
-    @Override
-    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-
-    }
 
 
     @Override
@@ -393,24 +274,27 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
             //  nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
             splitDistanceToLowerThan10m(location, nextLocation, locationsList);
             location = nextLocation;
-        }
+        }this.countToSelect = locationsList.size();
+        Log.d("Locations:", "up to date");
         updateLocations();
-
     }
 
     private void updateLocations(){
-        for (int i = 0; i < locationsList.size() && i < 12; i++) {
+        for (int i = 0; i < locationsList.size(); i++) {
 
             GeoObject go = new GeoObject(1l);
+
             go.setImageResource(R.drawable.ic_marker);
             go.setName("position");
             go.setGeoPosition(locationsList.get(i).getLatitude(), locationsList.get(i).getLongitude());
-            //   allLocationPoints.get(i).getAltitude());
 
+            //   allLocationPoints.get(i).getAltitude());
+            locationGeoObjectHashMap.put(locationsList.get(i), go);
             world.addBeyondarObject(go);
 
         }
         mBeyondarFragment.setWorld(world);
+
     }
 
 
@@ -452,7 +336,7 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
     private void splitDistanceToLowerThan10m(Location start, Location dest, List<Location> result) {
         if (!result.contains(start)) result.add(start);
         if (!result.contains(dest)) result.add(dest);
-        if (start.distanceTo(dest) > 10) {
+        if (start.distanceTo(dest) > 15) {
             Location midLocation = new Location(LOCATION_SERVICE);
             double lat3 = (start.getLatitude() + dest.getLatitude()) / 2;
             double lon3 = (start.getLongitude() + dest.getLongitude()) / 2;
@@ -466,29 +350,56 @@ public class CameraPreview extends FragmentActivity implements GoogleApiClient.C
         }
     }
 
-    public class CPLocationListener implements LocationListener{
+    @Override
+    public void onLocationChanged(Location location) {
+        Log.d("New Location" , location.getLatitude() +" " + location.getLongitude());
+        mLastLocation = location;
+       if(locationsList != null) {
+           int index = -1;
+           for (int i = 0; i < 10; i++) {
+               if (location.distanceTo(locationsList.get(i)) < 10) {
+                   index = i;
+                   break;
+               }
+           }
+           if (index != -1) {
+               for (int i = 0; i <= index; i++) {
+                   world.remove(locationGeoObjectHashMap.get(locationsList.get(0)));
+                   locationGeoObjectHashMap.remove(locationsList.get(i));
+                   locationsList.remove(0);
+                   countSelected++;
+               }
+           }
+           collectedText.setText(countSelected +"/" + countToSelect);
+       }
+    }
 
-        @Override
-        public void onLocationChanged(Location location) {
-            Log.d("New Location" , location.getLatitude() +" " + location.getLongitude());
-            mLastLocation = location;
-            world.setLocation(mLastLocation);
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
 
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
+    }
+
+    @Override
+    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+        LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+        DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString(), this);
+        destinationText.setVisibility(View.GONE);
+        isNewNavigationTextUp = false;
+        if(world != null){
+            world.clearWorld();
+            locationGeoObjectHashMap.clear();
         }
-
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras) {
-
-        }
-
-        @Override
-        public void onProviderEnabled(String provider) {
-
-        }
-
-        @Override
-        public void onProviderDisabled(String provider) {
-
-        }
+        directionFetcher.execute();
+        return false;
     }
 }

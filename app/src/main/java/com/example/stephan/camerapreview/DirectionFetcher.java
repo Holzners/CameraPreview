@@ -1,7 +1,5 @@
 package com.example.stephan.camerapreview;
 
-import android.location.Location;
-import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -67,18 +65,11 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
                 String encodedPoints = directionsResult.routes.get(0).overviewPolyLine.points;
             latLngs = PolyUtil.decode(encodedPoints);
 
-            Location myLoc= new Location(LocationManager.GPS_PROVIDER);
-            myLoc.setLongitude(origin.longitude);
-            myLoc.setLatitude(origin.latitude);
-
             preview.setLatLng(latLngs);
-
-            for(LatLng ll :latLngs){
-                Log.d("Point" , ll.latitude + " " +ll.longitude);
-            }
 
         } catch (Exception ex) {
             ex.printStackTrace();
+            Log.d("Failed","a");
         }
         return null;
     }
