@@ -5,6 +5,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -19,6 +20,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
+import com.beyondar.android.util.location.BeyondarLocationManager;
 import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
 import com.google.android.gms.common.ConnectionResult;
@@ -46,7 +48,7 @@ import java.util.List;
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        SensorEventListener, LocationListener,
+        SensorEventListener, LocationListener, android.location.LocationListener,
         TextView.OnEditorActionListener{
 
     private GoogleApiClient mGoogleApiClient;
@@ -66,7 +68,7 @@ public class CameraPreview extends FragmentActivity implements
     int countSelected = 0;
     int countToSelect = 0;
 
-    private boolean isNewNavigationTextUp = false;
+    private boolean isNavigationInit = false;
 
     private List<Location> locationsList;
     private World world;
@@ -86,7 +88,7 @@ public class CameraPreview extends FragmentActivity implements
         mPointer = (ImageView) findViewById(R.id.imageView);
         destinationText = (AutoCompleteTextView) findViewById(R.id.editText);
 
-        buildGoogleApiClient();
+         buildGoogleApiClient();
         destinationText.setVisibility(View.GONE);
         destinationText.setOnEditorActionListener(this);
         destinationText.setAdapter(new PlacesAutoCompleteAdapter(this, android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
@@ -115,6 +117,10 @@ public class CameraPreview extends FragmentActivity implements
         collectedText = (TextView) findViewById(R.id.pointText);
         collectedText.setVisibility(View.VISIBLE);
 
+        BeyondarLocationManager.setLocationManager((LocationManager) getSystemService(LOCATION_SERVICE));
+        BeyondarLocationManager.addWorldLocationUpdate(world);
+        BeyondarLocationManager.addLocationListener(this);
+
     }
 
 
@@ -123,6 +129,7 @@ public class CameraPreview extends FragmentActivity implements
         super.onResume();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
+        BeyondarLocationManager.enable();
         if(mGoogleApiClient.isConnected())startLocationUpdate();
     }
 
@@ -131,19 +138,19 @@ public class CameraPreview extends FragmentActivity implements
         super.onPause();
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
+        BeyondarLocationManager.disable();
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
     }
 
 
     public void newNavigation(View view) {
-        if (!isNewNavigationTextUp) {
+
             FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
             frameLayout.removeView(destinationText);
             frameLayout.addView(destinationText);
             destinationText.setVisibility(View.VISIBLE);
-            isNewNavigationTextUp = true;
-        }
+
     }
 
     private synchronized void buildGoogleApiClient() {
@@ -168,6 +175,8 @@ public class CameraPreview extends FragmentActivity implements
         super.onStop();
         if (mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
+        } else if(mGoogleApiClient.isConnecting()){
+            mGoogleApiClient.disconnect();
         }
     }
 
@@ -188,8 +197,7 @@ public class CameraPreview extends FragmentActivity implements
             Log.d("CameraPreview", (String.valueOf(mLastLocation.getLatitude())));
             Log.d("CameraPreview", (String.valueOf(mLastLocation.getLongitude())));
             world.setLocation(mLastLocation);
-
-
+            BeyondarLocationManager.disable();
         } else {
             Log.d("CameraPreview", "Could not get Location!");
         }
@@ -365,7 +373,11 @@ public class CameraPreview extends FragmentActivity implements
     public void onLocationChanged(Location location) {
         Log.d("New Location" , location.getLatitude() +" " + location.getLongitude());
         mLastLocation = location;
-        world.setLocation(location);
+        if(!isNavigationInit) {
+            startNavigation(destinationText.getText().toString());
+            isNavigationInit = true;
+        }
+       if(mGoogleApiClient.isConnected()) world.setLocation(location);
        if(locationsList != null) {
            int index = -1;
            for (int i = 0; i < 10; i++) {
@@ -382,22 +394,45 @@ public class CameraPreview extends FragmentActivity implements
                    countSelected++;
                }
            }
-           collectedText.setText(countSelected +"/" + countToSelect);
+           collectedText.setText(countSelected + "/" + countToSelect);
        }
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
     }
 
 
     @Override
     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+        destinationText.setVisibility(View.INVISIBLE);
+        if(mLastLocation != null) {
+            startNavigation(destinationText.getText().toString());
+
+            isNavigationInit = true;
+            return true;
+        }
+        return false;
+    }
+
+    public void startNavigation(String destination){
         LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-        DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destinationText.getText().toString(), this);
-        destinationText.setVisibility(View.GONE);
-        isNewNavigationTextUp = false;
-        if(world != null){
+        DirectionFetcher directionFetcher = new DirectionFetcher(myLocation,destination, this);
+        if (world != null) {
             world.clearWorld();
             locationGeoObjectHashMap.clear();
         }
         directionFetcher.execute();
-        return false;
     }
 }
