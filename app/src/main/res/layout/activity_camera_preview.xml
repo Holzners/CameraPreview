@@ -7,29 +7,13 @@
     android:id="@+id/contentPanel"
     tools:context=".CameraPreview">
 
-    <fragment
-        android:id="@+id/beyondarFragment"
-        android:name="com.beyondar.android.fragment.BeyondarFragmentSupport"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:id="@+id/fragmentContainer">
 
-    <Button
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:id="@+id/navigationButton"
-        android:onClick="newNavigation"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_gravity="left|bottom" />
+    </FrameLayout>
 
-    <ImageView
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:id="@+id/imageView"
-        android:layout_gravity="right|top"
-        android:src="@drawable/pointer"
-       />
 
     <TextView
         android:layout_width="wrap_content"
@@ -41,15 +25,25 @@
         android:textColor="@color/white"
         android:layout_gravity="center_horizontal|top" />
 
-    <AutoCompleteTextView
-        android:paddingBottom="10dp"
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:id="@+id/imageView"
+        android:layout_gravity="right|top"
+        android:src="@drawable/pointer"
+        />
+
+    <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:ems="10"
-        android:id="@+id/editText"
-        android:layout_gravity="center_horizontal|bottom"
-        android:completionThreshold="3"
-        android:background="#f0D3D3D3" />
+        android:text="Cancel"
+        android:id="@+id/backButton"
+        android:visibility="gone"
+        android:onClick="backToStartScreen"
+        android:textColor="@color/material_deep_teal_500"
+        android:background="@color/dim_foreground_disabled_material_dark"
+        android:layout_gravity="right|bottom" />
 
 
 </FrameLayout>

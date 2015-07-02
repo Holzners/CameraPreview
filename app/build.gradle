@@ -33,6 +33,6 @@ dependencies {
     compile 'com.google.apis:google-api-services-drive:v2-rev105-1.17.0-rc'
     compile 'com.google.http-client:google-http-client-jackson:1.15.0-rc'
     compile 'com.google.maps.android:android-maps-utils:0.3+'
-    compile 'org.rajawali3d:rajawali:1.0.186-SNAPSHOT@aar'
     compile files('src/main/libs/beyondar-v0.9.3.jar')
+    compile files('src/main/libs/beyondar-radar-plugin-v0.9.1.jar')
 }

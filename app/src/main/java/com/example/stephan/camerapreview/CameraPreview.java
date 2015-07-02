@@ -1,5 +1,7 @@
 package com.example.stephan.camerapreview;
 
+
+import android.app.ProgressDialog;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -8,14 +10,12 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -48,12 +48,11 @@ import java.util.List;
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        SensorEventListener, LocationListener, android.location.LocationListener,
-        TextView.OnEditorActionListener{
+        SensorEventListener, LocationListener, android.location.LocationListener{
 
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
-    private AutoCompleteTextView destinationText;
+
     private ImageView mPointer;
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
@@ -79,6 +78,12 @@ public class CameraPreview extends FragmentActivity implements
 
     LocationRequest locationRequest;
 
+    private String destination;
+
+    ProgressDialog progressDialog;
+
+    Button backButton;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
@@ -86,17 +91,11 @@ public class CameraPreview extends FragmentActivity implements
         setContentView(R.layout.activity_camera_preview);
 
         mPointer = (ImageView) findViewById(R.id.imageView);
-        destinationText = (AutoCompleteTextView) findViewById(R.id.editText);
 
-         buildGoogleApiClient();
-        destinationText.setVisibility(View.GONE);
-        destinationText.setOnEditorActionListener(this);
-        destinationText.setAdapter(new PlacesAutoCompleteAdapter(this, android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
+        buildGoogleApiClient();
 
-        mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
 
-        Button button = (Button) findViewById(R.id.navigationButton);
-        button.setBackgroundResource(R.drawable.navigation_icon_new);
+        //mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
 
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -121,14 +120,14 @@ public class CameraPreview extends FragmentActivity implements
         BeyondarLocationManager.addWorldLocationUpdate(world);
         BeyondarLocationManager.addLocationListener(this);
 
+        backButton = (Button) findViewById(R.id.backButton);
+        backToStartScreen(null);
     }
 
 
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
         BeyondarLocationManager.enable();
         if(mGoogleApiClient.isConnected())startLocationUpdate();
     }
@@ -144,13 +143,17 @@ public class CameraPreview extends FragmentActivity implements
     }
 
 
-    public void newNavigation(View view) {
+    public void newNavigation(String destination) {
+        mPointer.setVisibility(View.VISIBLE);
+        backButton.setVisibility(View.VISIBLE);
+        this.destination = destination;
+        if(mLastLocation != null){
+            startNavigation(destination);
 
-            FrameLayout frameLayout = (FrameLayout) findViewById(R.id.contentPanel);
-            frameLayout.removeView(destinationText);
-            frameLayout.addView(destinationText);
-            destinationText.setVisibility(View.VISIBLE);
-
+        }
+        progressDialog = ProgressDialog.show(this, "Processing",
+                "calculate route", true);
+        addBeyondArFragment();
     }
 
     private synchronized void buildGoogleApiClient() {
@@ -299,11 +302,14 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     private void updateLocations(){
+
+
         for (Location l : locationsList) {
 
             GeoObject go = new GeoObject(1l);
 
-            go.setImageResource(R.drawable.ic_marker);
+            if(locationsList.size()-1 > locationsList.indexOf(l)) go.setImageResource(R.drawable.ic_marker);
+            else go.setImageResource(R.drawable.pfeil);
             go.setName("position");
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
 
@@ -312,8 +318,11 @@ public class CameraPreview extends FragmentActivity implements
             world.addBeyondarObject(go);
 
         }
-        mBeyondarFragment.setWorld(world);
 
+        mBeyondarFragment.setWorld(world);
+        progressDialog.dismiss();
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
 
@@ -371,12 +380,10 @@ public class CameraPreview extends FragmentActivity implements
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.d("New Location" , location.getLatitude() +" " + location.getLongitude());
+        Log.d("New Location", location.getLatitude() + " " + location.getLongitude());
         mLastLocation = location;
-        if(!isNavigationInit) {
-            startNavigation(destinationText.getText().toString());
-            isNavigationInit = true;
-        }
+        if(!isNavigationInit) startNavigation(destination);
+
        if(mGoogleApiClient.isConnected()) world.setLocation(location);
        if(locationsList != null) {
            int index = -1;
@@ -398,21 +405,16 @@ public class CameraPreview extends FragmentActivity implements
        }
     }
 
-
-
-    @Override
-    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-        destinationText.setVisibility(View.INVISIBLE);
-        if(mLastLocation != null) {
-            startNavigation(destinationText.getText().toString());
-
-            isNavigationInit = true;
-            return true;
-        }
-        return false;
+    public void addBeyondArFragment(){
+        mBeyondarFragment = new BeyondarFragmentSupport();
+        FragmentManager fm = getSupportFragmentManager();
+        fm.beginTransaction().replace(R.id.fragmentContainer, mBeyondarFragment).commit();
     }
 
+
+
     public void startNavigation(String destination){
+        isNavigationInit = true;
         LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
         DirectionFetcher directionFetcher = new DirectionFetcher(myLocation,destination, this);
         if (world != null) {
@@ -420,6 +422,19 @@ public class CameraPreview extends FragmentActivity implements
             locationGeoObjectHashMap.clear();
         }
         directionFetcher.execute();
+    }
+
+    public void backToStartScreen(View view){
+        mSensorManager.unregisterListener(this, mAccelerometer);
+        mSensorManager.unregisterListener(this, mMagnetometer);
+
+        mPointer = (ImageView) findViewById(R.id.imageView);
+        mPointer.setVisibility(View.GONE);
+        backButton.setVisibility(View.INVISIBLE);
+        world.clearWorld();
+        StartScreenFragment startScreenFragment = StartScreenFragment.newInstance(mGoogleApiClient);
+        FragmentManager fm = getSupportFragmentManager();
+        fm.beginTransaction().replace(R.id.fragmentContainer, startScreenFragment).commit();
     }
 
     @Override
@@ -436,4 +451,6 @@ public class CameraPreview extends FragmentActivity implements
     public void onProviderDisabled(String provider) {
 
     }
+
+
 }

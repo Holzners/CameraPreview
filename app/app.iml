@@ -94,7 +94,6 @@
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/exploded-aar/com.google.android.gms/play-services-wearable/7.5.0/jars" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/exploded-aar/com.google.android.gms/play-services/7.5.0/jars" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/exploded-aar/com.google.maps.android/android-maps-utils/0.3.4/jars" />
-      <excludeFolder url="file://$MODULE_DIR$/build/intermediates/exploded-aar/org.rajawali3d/rajawali/1.0.186-SNAPSHOT/jars" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/incremental" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/jacoco" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/javaResources" />
@@ -113,7 +112,6 @@
     <orderEntry type="jdk" jdkName="Android API 22 Platform" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" exported="" name="google-oauth-client-1.17.0-rc" level="project" />
-    <orderEntry type="library" exported="" name="rajawali-1.0.186-SNAPSHOT" level="project" />
     <orderEntry type="library" exported="" name="google-http-client-1.17.0-rc" level="project" />
     <orderEntry type="library" exported="" name="google-http-client-android-1.17.0-rc" level="project" />
     <orderEntry type="library" exported="" name="play-services-base-7.5.0" level="project" />
@@ -146,8 +144,9 @@
     <orderEntry type="library" exported="" name="play-services-nearby-7.5.0" level="project" />
     <orderEntry type="library" exported="" name="google-http-client-gson-1.17.0-rc" level="project" />
     <orderEntry type="library" exported="" name="google-http-client-xml-1.17.0-rc" level="project" />
-    <orderEntry type="library" exported="" name="google-api-client-1.17.0-rc" level="project" />
+    <orderEntry type="library" exported="" name="beyondar-radar-plugin-v0.9.1" level="project" />
     <orderEntry type="library" exported="" name="play-services-cast-7.5.0" level="project" />
+    <orderEntry type="library" exported="" name="google-api-client-1.17.0-rc" level="project" />
     <orderEntry type="library" exported="" name="gson-2.1" level="project" />
     <orderEntry type="library" exported="" name="android-maps-utils-0.3.4" level="project" />
     <orderEntry type="library" exported="" name="support-v4-22.1.1" level="project" />
