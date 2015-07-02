@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -114,7 +115,7 @@ public class CameraPreview extends FragmentActivity implements
         locationGeoObjectHashMap = new HashMap<>();
 
         collectedText = (TextView) findViewById(R.id.pointText);
-        collectedText.setVisibility(View.VISIBLE);
+
 
         BeyondarLocationManager.setLocationManager((LocationManager) getSystemService(LOCATION_SERVICE));
         BeyondarLocationManager.addWorldLocationUpdate(world);
@@ -144,8 +145,13 @@ public class CameraPreview extends FragmentActivity implements
 
 
     public void newNavigation(String destination) {
-        mPointer.setVisibility(View.VISIBLE);
+        FrameLayout fm = (FrameLayout) findViewById(R.id.contentPanel);
+        fm.addView(mPointer);
+        collectedText.setVisibility(View.VISIBLE);
+        collectedText.setText("0/0");
+
         backButton.setVisibility(View.VISIBLE);
+        collectedText.setVisibility(View.VISIBLE);
         this.destination = destination;
         if(mLastLocation != null){
             startNavigation(destination);
@@ -428,8 +434,10 @@ public class CameraPreview extends FragmentActivity implements
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
 
-        mPointer = (ImageView) findViewById(R.id.imageView);
-        mPointer.setVisibility(View.GONE);
+        FrameLayout fl = (FrameLayout) findViewById(R.id.contentPanel);
+
+        fl.removeView(mPointer);
+        collectedText.setVisibility(View.GONE);
         backButton.setVisibility(View.INVISIBLE);
         world.clearWorld();
         StartScreenFragment startScreenFragment = StartScreenFragment.newInstance(mGoogleApiClient);

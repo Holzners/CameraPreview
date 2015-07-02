@@ -40,6 +40,8 @@
         android:layout_height="wrap_content"
         android:ems="10"
         android:id="@+id/editText"
+        android:imeOptions="actionGo"
+        android:inputType="text"
         android:layout_gravity="center_horizontal"
         android:textColor="@color/material_deep_teal_500"
         android:completionThreshold="3"

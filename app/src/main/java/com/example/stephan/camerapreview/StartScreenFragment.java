@@ -6,7 +6,6 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.TextView;
@@ -15,7 +14,7 @@ import android.widget.Toast;
 import com.google.android.gms.common.api.GoogleApiClient;
 
 
-public class StartScreenFragment extends Fragment implements TextView.OnEditorActionListener{
+public class StartScreenFragment extends Fragment{
 
     private AutoCompleteTextView destinationText;
     private GoogleApiClient mGoogleApiClient;
@@ -42,7 +41,12 @@ public class StartScreenFragment extends Fragment implements TextView.OnEditorAc
     public void onActivityCreated(Bundle savedInstanceState){
         super.onActivityCreated(savedInstanceState);
         destinationText = (AutoCompleteTextView) getView().findViewById(R.id.editText);
-        destinationText.setOnEditorActionListener(this);
+        destinationText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                return false;
+            }
+        });
         destinationText.setAdapter(new PlacesAutoCompleteAdapter(getActivity(), android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
         Button button = (Button) getView().findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -51,15 +55,6 @@ public class StartScreenFragment extends Fragment implements TextView.OnEditorAc
                 onClickStart();
             }
         });
-    }
-
-    @Override
-    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-        if (actionId == EditorInfo.IME_ACTION_DONE) {
-
-            return true;
-        }
-        return false;
     }
 
     public void onClickStart(){
