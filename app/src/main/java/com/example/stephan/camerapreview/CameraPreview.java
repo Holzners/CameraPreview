@@ -133,6 +133,7 @@ public class CameraPreview extends FragmentActivity implements
 
         backButton = (Button) findViewById(R.id.backButton);
         backToStartScreen(null);
+        initLocationListener();
     }
 
     private void initLocationListener(){
@@ -177,7 +178,7 @@ public class CameraPreview extends FragmentActivity implements
         } catch (Exception e) {
             e.printStackTrace();
         }
-
+        Log.d("GPS Enabled", canGetLocation +"");
             if(canGetLocation) BeyondarLocationManager.disable();
 
 
@@ -199,7 +200,6 @@ public class CameraPreview extends FragmentActivity implements
 
 
     public void newNavigation(String destination) {
-        initLocationListener();
         FrameLayout fm = (FrameLayout) findViewById(R.id.contentPanel);
         fm.addView(mPointer);
         collectedText.setVisibility(View.VISIBLE);
