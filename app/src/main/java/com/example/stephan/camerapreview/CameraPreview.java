@@ -7,6 +7,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -26,8 +27,6 @@ import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -45,11 +44,26 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        SensorEventListener, LocationListener, android.location.LocationListener{
+        SensorEventListener, LocationListener{
+
+    private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 1; // 10 meters
+
+    // The minimum time between updates in milliseconds
+    private static final long MIN_TIME_BW_UPDATES = 1000; //
+
+    // flag for GPS status
+    boolean isGPSEnabled = false;
+
+    // flag for network status
+    boolean isNetworkEnabled = false;
+
+    boolean canGetLocation = false;
+
 
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
@@ -77,7 +91,7 @@ public class CameraPreview extends FragmentActivity implements
     private HashMap<Location, GeoObject> locationGeoObjectHashMap;
     private TextView collectedText;
 
-    LocationRequest locationRequest;
+    LocationManager locationManager;
 
     private String destination;
 
@@ -106,18 +120,14 @@ public class CameraPreview extends FragmentActivity implements
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.ic_marker);
 
-        locationRequest = LocationRequest.create();
-        locationRequest.setInterval(500);
-        locationRequest.setFastestInterval(100);
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setSmallestDisplacement(10);
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
         locationGeoObjectHashMap = new HashMap<>();
 
         collectedText = (TextView) findViewById(R.id.pointText);
 
 
-        BeyondarLocationManager.setLocationManager((LocationManager) getSystemService(LOCATION_SERVICE));
+        BeyondarLocationManager.setLocationManager((locationManager));
         BeyondarLocationManager.addWorldLocationUpdate(world);
         BeyondarLocationManager.addLocationListener(this);
 
@@ -125,12 +135,58 @@ public class CameraPreview extends FragmentActivity implements
         backToStartScreen(null);
     }
 
+    private void initLocationListener(){
+        try {
+            // getting GPS status
+            isGPSEnabled = locationManager
+                    .isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+            // getting network status
+            isNetworkEnabled = locationManager
+                    .isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+            if (!isGPSEnabled && !isNetworkEnabled) {
+                // no network provider is enabled
+            }else {
+                this.canGetLocation = true;
+                // First get location from Network Provider
+                if (isNetworkEnabled) {
+                    locationManager.requestLocationUpdates(
+                            LocationManager.NETWORK_PROVIDER,
+                            MIN_TIME_BW_UPDATES,
+                            MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                if (locationManager != null) {
+                    mLastLocation = locationManager
+                            .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+
+                }
+            }if (isGPSEnabled) {
+                    if (mLastLocation == null) {
+                        locationManager.requestLocationUpdates(
+                                LocationManager.GPS_PROVIDER,
+                                MIN_TIME_BW_UPDATES,
+                                MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                        Log.d("GPS Enabled", "GPS Enabled");
+                        if (locationManager != null) {
+                            mLastLocation = locationManager
+                                    .getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+            if(canGetLocation) BeyondarLocationManager.disable();
+
+
+        }
 
     @Override
     protected void onResume() {
         super.onResume();
         BeyondarLocationManager.enable();
-        if(mGoogleApiClient.isConnected())startLocationUpdate();
     }
 
     @Override
@@ -139,12 +195,11 @@ public class CameraPreview extends FragmentActivity implements
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
         BeyondarLocationManager.disable();
-        LocationServices.FusedLocationApi.removeLocationUpdates(
-                mGoogleApiClient, this);
     }
 
 
     public void newNavigation(String destination) {
+        initLocationListener();
         FrameLayout fm = (FrameLayout) findViewById(R.id.contentPanel);
         fm.addView(mPointer);
         collectedText.setVisibility(View.VISIBLE);
@@ -168,9 +223,6 @@ public class CameraPreview extends FragmentActivity implements
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
-
-
-
     }
 
     @Override
@@ -199,22 +251,6 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     public void onConnected(Bundle bundle) {
 
-        startLocationUpdate();
-        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-
-        if (mLastLocation != null) {
-            Log.d("CameraPreview", (String.valueOf(mLastLocation.getLatitude())));
-            Log.d("CameraPreview", (String.valueOf(mLastLocation.getLongitude())));
-            world.setLocation(mLastLocation);
-            BeyondarLocationManager.disable();
-        } else {
-            Log.d("CameraPreview", "Could not get Location!");
-        }
-    }
-
-    private void startLocationUpdate(){
-        LocationServices.FusedLocationApi.
-                requestLocationUpdates(mGoogleApiClient, locationRequest, this);
     }
 
     @Override
@@ -388,28 +424,36 @@ public class CameraPreview extends FragmentActivity implements
     public void onLocationChanged(Location location) {
         Log.d("New Location", location.getLatitude() + " " + location.getLongitude());
         mLastLocation = location;
-        if(!isNavigationInit) startNavigation(destination);
+        if (destination != null && !destination.equals("")) {
+            if (!isNavigationInit) startNavigation(destination);
 
-       if(mGoogleApiClient.isConnected()) world.setLocation(location);
-       if(locationsList != null) {
-           int index = -1;
-           for (int i = 0; i < 10; i++) {
-               if (location.distanceTo(locationsList.get(i)) < 10) {
-                   index = i;
-                   break;
-               }
-           }
-           if (index != -1) {
-               for (int i = 0; i <= index; i++) {
-                   world.remove(locationGeoObjectHashMap.get(locationsList.get(0)));
-                   locationGeoObjectHashMap.remove(locationsList.get(i));
-                   locationsList.remove(0);
-                   countSelected++;
-                   if (locationsList.isEmpty()) (findViewById(R.id.destinationText)).setVisibility(View.VISIBLE);
-               }
-           }
-           collectedText.setText(countSelected + "/" + countToSelect);
-       }
+            world.setLocation(location);
+            if (locationsList != null) {
+                int index = -1;
+                for (int i = 0; i < 10; i++) {
+                    if (location.distanceTo(locationsList.get(i)) < 10) {
+                        index = i;
+                        break;
+                    }
+                }
+                for(Map.Entry<Location, GeoObject> e : locationGeoObjectHashMap.entrySet()){
+                    e.getValue().setLocation(e.getKey());
+                    Log.d("Distance Geobject" , e.getKey().distanceTo(location) + "");
+                }
+                if (index != -1) {
+                    for (int i = 0; i <= index; i++) {
+                        world.remove(locationGeoObjectHashMap.get(locationsList.get(0)));
+                        locationGeoObjectHashMap.remove(locationsList.get(0));
+                        locationsList.remove(0);
+                        countSelected++;
+                        if (locationsList.isEmpty())
+                            (findViewById(R.id.destinationText)).setVisibility(View.VISIBLE);
+                        break;
+                    }
+                }
+                collectedText.setText(countSelected + "/" + countToSelect);
+            }
+        }
     }
 
     public void addBeyondArFragment(){
@@ -432,6 +476,7 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     public void backToStartScreen(View view){
+        destination = "";
         if(findViewById(R.id.destinationText).getVisibility() == View.VISIBLE)
             findViewById(R.id.destinationText).setVisibility(View.INVISIBLE);
         mSensorManager.unregisterListener(this, mAccelerometer);
