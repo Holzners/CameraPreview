@@ -46,4 +46,16 @@
         android:layout_gravity="right|bottom" />
 
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Destination reached!"
+        android:textSize="25dp"
+        android:visibility="gone"
+        android:id="@+id/destinationText"
+        android:layout_gravity="center_horizontal|top"
+        android:textColor="@color/material_deep_teal_500"
+        android:background="@color/dim_foreground_disabled_material_dark"/>
+
+
 </FrameLayout>

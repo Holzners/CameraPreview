@@ -405,6 +405,7 @@ public class CameraPreview extends FragmentActivity implements
                    locationGeoObjectHashMap.remove(locationsList.get(i));
                    locationsList.remove(0);
                    countSelected++;
+                   if (locationsList.isEmpty()) (findViewById(R.id.destinationText)).setVisibility(View.VISIBLE);
                }
            }
            collectedText.setText(countSelected + "/" + countToSelect);
@@ -431,6 +432,8 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     public void backToStartScreen(View view){
+        if(findViewById(R.id.destinationText).getVisibility() == View.VISIBLE)
+            findViewById(R.id.destinationText).setVisibility(View.INVISIBLE);
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
 
