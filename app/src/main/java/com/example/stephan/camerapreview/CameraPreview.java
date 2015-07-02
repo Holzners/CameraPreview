@@ -96,7 +96,7 @@ public class CameraPreview extends FragmentActivity implements
         mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
 
         Button button = (Button) findViewById(R.id.navigationButton);
-        button.setBackground(this.getResources().getDrawable(R.drawable.navigation_icon));
+        button.setBackgroundResource(R.drawable.navigation_icon_new);
 
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -283,14 +283,14 @@ public class CameraPreview extends FragmentActivity implements
         location.setLatitude(tmp.latitude);
         location.setLongitude(tmp.longitude);
 
-        //location.setAltitude(getElevationFromGoogleMaps(tmp.longitude,tmp.latitude));
+      //  location.setAltitude(getElevationFromGoogleMaps(tmp.longitude, tmp.latitude));
 
        locationsList = new ArrayList<>();
         for (int i = 0; i < latLngs.size(); i++) {
             Location nextLocation = new Location(LOCATION_SERVICE);
             nextLocation.setLatitude(latLngs.get(i).latitude);
             nextLocation.setLongitude(latLngs.get(i).longitude);
-            //  nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
+           // nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
             splitDistanceToLowerThan10m(location, nextLocation, locationsList);
             location = nextLocation;
         }this.countToSelect = locationsList.size();
@@ -299,16 +299,16 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     private void updateLocations(){
-        for (int i = 0; i < locationsList.size(); i++) {
+        for (Location l : locationsList) {
 
             GeoObject go = new GeoObject(1l);
 
             go.setImageResource(R.drawable.ic_marker);
             go.setName("position");
-            go.setGeoPosition(locationsList.get(i).getLatitude(), locationsList.get(i).getLongitude());
+            go.setGeoPosition(l.getLatitude(), l.getLongitude());
 
             //   allLocationPoints.get(i).getAltitude());
-            locationGeoObjectHashMap.put(locationsList.get(i), go);
+            locationGeoObjectHashMap.put(l, go);
             world.addBeyondarObject(go);
 
         }
@@ -398,20 +398,6 @@ public class CameraPreview extends FragmentActivity implements
        }
     }
 
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-
-    }
 
 
     @Override
@@ -434,5 +420,20 @@ public class CameraPreview extends FragmentActivity implements
             locationGeoObjectHashMap.clear();
         }
         directionFetcher.execute();
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
     }
 }

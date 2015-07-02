@@ -23,15 +23,6 @@
         android:layout_alignParentStart="true"
         android:layout_gravity="left|bottom" />
 
-    <AutoCompleteTextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:ems="10"
-        android:id="@+id/editText"
-        android:layout_gravity="center"
-        android:completionThreshold="3"
-        android:background="#f0D3D3D3" />
-
     <ImageView
         android:layout_width="64dp"
         android:layout_height="64dp"
@@ -49,6 +40,16 @@
         android:background="#f0D3D3D3"
         android:textColor="@color/white"
         android:layout_gravity="center_horizontal|top" />
+
+    <AutoCompleteTextView
+        android:paddingBottom="10dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:id="@+id/editText"
+        android:layout_gravity="center_horizontal|bottom"
+        android:completionThreshold="3"
+        android:background="#f0D3D3D3" />
 
 
 </FrameLayout>
