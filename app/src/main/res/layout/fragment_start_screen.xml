@@ -3,7 +3,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context="com.example.stephan.camerapreview.StartScreenFragment"
-    android:background="@color/hint_foreground_material_dark">
+    android:background="@drawable/background">
 
     <TextView
         android:layout_width="wrap_content"
