@@ -45,6 +45,17 @@
         android:background="@color/dim_foreground_disabled_material_dark"
         android:layout_gravity="right|bottom" />
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Refresh"
+        android:id="@+id/revalButton"
+        android:visibility="gone"
+        android:onClick="refreshGps"
+        android:textColor="@color/material_deep_teal_500"
+        android:background="@color/dim_foreground_disabled_material_dark"
+        android:layout_gravity="left|bottom" />
+
 
     <TextView
         android:layout_width="wrap_content"

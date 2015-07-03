@@ -49,7 +49,7 @@ import java.util.Map;
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        SensorEventListener, LocationListener{
+        SensorEventListener, LocationListener {
 
     private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 1; // 10 meters
 
@@ -91,13 +91,16 @@ public class CameraPreview extends FragmentActivity implements
     private HashMap<Location, GeoObject> locationGeoObjectHashMap;
     private TextView collectedText;
 
-    LocationManager locationManager;
+
+    private LocationManager locationManager;
 
     private String destination;
 
-    ProgressDialog progressDialog;
+    private ProgressDialog progressDialog;
 
-    Button backButton;
+    private Button backButton, refreshButton;
+
+    private GpsFilter gpsFilter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -109,7 +112,7 @@ public class CameraPreview extends FragmentActivity implements
 
         buildGoogleApiClient();
 
-
+        gpsFilter = new GpsFilter();
         //mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
 
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -119,6 +122,7 @@ public class CameraPreview extends FragmentActivity implements
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.ic_marker);
+
 
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
@@ -132,11 +136,12 @@ public class CameraPreview extends FragmentActivity implements
         BeyondarLocationManager.addLocationListener(this);
 
         backButton = (Button) findViewById(R.id.backButton);
+        refreshButton = (Button) findViewById(R.id.revalButton);
         backToStartScreen(null);
         initLocationListener();
     }
 
-    private void initLocationListener(){
+    private void initLocationListener() {
         try {
             // getting GPS status
             isGPSEnabled = locationManager
@@ -147,47 +152,48 @@ public class CameraPreview extends FragmentActivity implements
                     .isProviderEnabled(LocationManager.NETWORK_PROVIDER);
             if (!isGPSEnabled && !isNetworkEnabled) {
                 // no network provider is enabled
-            }else {
+            } else {
                 this.canGetLocation = true;
-                // First get location from Network Provider
+                // First get location from GPS Provider
+
                 if (isNetworkEnabled) {
                     locationManager.requestLocationUpdates(
                             LocationManager.NETWORK_PROVIDER,
                             MIN_TIME_BW_UPDATES,
                             MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-                if (locationManager != null) {
-                    mLastLocation = locationManager
-                            .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                    if (locationManager != null) {
+                        mLastLocation = locationManager
+                                .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                    }
 
                 }
-            }if (isGPSEnabled) {
-                    if (mLastLocation == null) {
-                        locationManager.requestLocationUpdates(
-                                LocationManager.GPS_PROVIDER,
-                                MIN_TIME_BW_UPDATES,
-                                MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-                        Log.d("GPS Enabled", "GPS Enabled");
-                        if (locationManager != null) {
-                            mLastLocation = locationManager
-                                    .getLastKnownLocation(LocationManager.GPS_PROVIDER);
-
-                        }
+                if (isGPSEnabled) {
+                    locationManager.requestLocationUpdates(
+                            LocationManager.GPS_PROVIDER,
+                            MIN_TIME_BW_UPDATES,
+                            MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                    Log.d("GPS Enabled", "GPS Enabled");
+                    if (locationManager != null) {
+                        mLastLocation = locationManager
+                                .getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     }
                 }
+
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.d("GPS Enabled", canGetLocation +"");
-            if(canGetLocation) BeyondarLocationManager.disable();
+        Log.d("GPS Enabled", canGetLocation + "");
+        if (canGetLocation) BeyondarLocationManager.disable();
 
 
-        }
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
         BeyondarLocationManager.enable();
+        initLocationListener();
     }
 
     @Override
@@ -196,6 +202,7 @@ public class CameraPreview extends FragmentActivity implements
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
         BeyondarLocationManager.disable();
+        locationManager.removeUpdates(this);
     }
 
 
@@ -206,9 +213,10 @@ public class CameraPreview extends FragmentActivity implements
         collectedText.setText("0/0");
 
         backButton.setVisibility(View.VISIBLE);
+        refreshButton.setVisibility(View.VISIBLE);
         collectedText.setVisibility(View.VISIBLE);
         this.destination = destination;
-        if(mLastLocation != null){
+        if (mLastLocation != null) {
             startNavigation(destination);
 
         }
@@ -236,7 +244,7 @@ public class CameraPreview extends FragmentActivity implements
         super.onStop();
         if (mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
-        } else if(mGoogleApiClient.isConnecting()){
+        } else if (mGoogleApiClient.isConnecting()) {
             mGoogleApiClient.disconnect();
         }
     }
@@ -259,7 +267,6 @@ public class CameraPreview extends FragmentActivity implements
         // attempt to re-establish the connection.
         mGoogleApiClient.connect();
     }
-
 
 
     @Override
@@ -328,29 +335,29 @@ public class CameraPreview extends FragmentActivity implements
         location.setLatitude(tmp.latitude);
         location.setLongitude(tmp.longitude);
 
-      //  location.setAltitude(getElevationFromGoogleMaps(tmp.longitude, tmp.latitude));
+        //  location.setAltitude(getElevationFromGoogleMaps(tmp.longitude, tmp.latitude));
 
-       locationsList = new ArrayList<>();
+        locationsList = new ArrayList<>();
         for (int i = 0; i < latLngs.size(); i++) {
             Location nextLocation = new Location(LOCATION_SERVICE);
             nextLocation.setLatitude(latLngs.get(i).latitude);
             nextLocation.setLongitude(latLngs.get(i).longitude);
-           // nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
+            // nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
             splitDistanceToLowerThan10m(location, nextLocation, locationsList);
             location = nextLocation;
-        }this.countToSelect = locationsList.size();
+        }
+        this.countToSelect = locationsList.size();
         Log.d("Locations:", "up to date");
         updateLocations();
     }
 
-    private void updateLocations(){
-
-
+    private void updateLocations() {
         for (Location l : locationsList) {
 
             GeoObject go = new GeoObject(1l);
 
-            if(locationsList.size()-1 > locationsList.indexOf(l)) go.setImageResource(R.drawable.ic_marker);
+            if (locationsList.size() - 1 > locationsList.indexOf(l))
+                go.setImageResource(R.drawable.ic_marker);
             else go.setImageResource(R.drawable.pfeil);
             go.setName("position");
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
@@ -358,16 +365,22 @@ public class CameraPreview extends FragmentActivity implements
             //   allLocationPoints.get(i).getAltitude());
             locationGeoObjectHashMap.put(l, go);
             world.addBeyondarObject(go);
-
         }
 
         mBeyondarFragment.setWorld(world);
+        mBeyondarFragment.getGLSurfaceView().setMaxDistanceToRender(100);
         progressDialog.dismiss();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-
+    /**
+     * Unbenutzt da Altitudedaten leider zu ungenau
+     *
+     * @param longitude
+     * @param latitude
+     * @return
+     */
     private double getElevationFromGoogleMaps(double longitude, double latitude) {
         double result = Double.NaN;
         HttpClient httpClient = new DefaultHttpClient();
@@ -406,7 +419,7 @@ public class CameraPreview extends FragmentActivity implements
     private void splitDistanceToLowerThan10m(Location start, Location dest, List<Location> result) {
         if (!result.contains(start)) result.add(start);
         if (!result.contains(dest)) result.add(dest);
-        if (start.distanceTo(dest) > 15) {
+        if (start.distanceTo(dest) > 20) {
             Location midLocation = new Location(LOCATION_SERVICE);
             double lat3 = (start.getLatitude() + dest.getLatitude()) / 2;
             double lon3 = (start.getLongitude() + dest.getLongitude()) / 2;
@@ -423,7 +436,17 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     public void onLocationChanged(Location location) {
         Log.d("New Location", location.getLatitude() + " " + location.getLongitude());
-        mLastLocation = location;
+        Log.d("Distance to old" , "" + location.distanceTo(mLastLocation));
+        LatLng latLng = gpsFilter.filterGpsData(location.getLatitude(), location.getLongitude(),
+                location.getAccuracy(), System.currentTimeMillis());
+
+        Location location1 = new Location(LOCATION_SERVICE);
+        location1.setLongitude(latLng.longitude);
+        location1.setLatitude(latLng.latitude);
+        Log.d("smoothed Distance" , "" + location1.distanceTo(mLastLocation));
+        mLastLocation.setLongitude(latLng.longitude);
+        mLastLocation.setLatitude(latLng.latitude);
+
         if (destination != null && !destination.equals("")) {
             if (!isNavigationInit) startNavigation(destination);
 
@@ -436,9 +459,8 @@ public class CameraPreview extends FragmentActivity implements
                         break;
                     }
                 }
-                for(Map.Entry<Location, GeoObject> e : locationGeoObjectHashMap.entrySet()){
+                for (Map.Entry<Location, GeoObject> e : locationGeoObjectHashMap.entrySet()) {
                     e.getValue().setLocation(e.getKey());
-                    Log.d("Distance Geobject" , e.getKey().distanceTo(location) + "");
                 }
                 if (index != -1) {
                     for (int i = 0; i <= index; i++) {
@@ -456,18 +478,18 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
-    public void addBeyondArFragment(){
+    public void addBeyondArFragment() {
         mBeyondarFragment = new BeyondarFragmentSupport();
         FragmentManager fm = getSupportFragmentManager();
         fm.beginTransaction().replace(R.id.fragmentContainer, mBeyondarFragment).commit();
+
     }
 
 
-
-    public void startNavigation(String destination){
+    public void startNavigation(String destination) {
         isNavigationInit = true;
         LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-        DirectionFetcher directionFetcher = new DirectionFetcher(myLocation,destination, this);
+        DirectionFetcher directionFetcher = new DirectionFetcher(myLocation, destination, this);
         if (world != null) {
             world.clearWorld();
             locationGeoObjectHashMap.clear();
@@ -475,19 +497,22 @@ public class CameraPreview extends FragmentActivity implements
         directionFetcher.execute();
     }
 
-    public void backToStartScreen(View view){
+    public void backToStartScreen(View view) {
         destination = "";
-        if(findViewById(R.id.destinationText).getVisibility() == View.VISIBLE)
-            findViewById(R.id.destinationText).setVisibility(View.INVISIBLE);
-        mSensorManager.unregisterListener(this, mAccelerometer);
-        mSensorManager.unregisterListener(this, mMagnetometer);
-
         FrameLayout fl = (FrameLayout) findViewById(R.id.contentPanel);
-
         fl.removeView(mPointer);
         collectedText.setVisibility(View.GONE);
         backButton.setVisibility(View.INVISIBLE);
+        refreshButton.setVisibility(View.INVISIBLE);
         world.clearWorld();
+
+        if (findViewById(R.id.destinationText).getVisibility() == View.VISIBLE)
+            findViewById(R.id.destinationText).setVisibility(View.INVISIBLE);
+
+        mSensorManager.unregisterListener(this, mAccelerometer);
+        mSensorManager.unregisterListener(this, mMagnetometer);
+
+
         StartScreenFragment startScreenFragment = StartScreenFragment.newInstance(mGoogleApiClient);
         FragmentManager fm = getSupportFragmentManager();
         fm.beginTransaction().replace(R.id.fragmentContainer, startScreenFragment).commit();
@@ -508,5 +533,45 @@ public class CameraPreview extends FragmentActivity implements
 
     }
 
+    public void refreshGps(View view) {
+        locationManager.removeUpdates(this);
+        initLocationListener();
+    }
+
+
+    public class GpsFilter {
+        private final float MIN_ACCURACY = 1;
+        private float variance = -1;
+        private float metres_per_second_walking = 2;
+        private long time_inMilliseconds;
+        private double lat;
+        private double lng;
+
+        public LatLng filterGpsData(double lat_measurement, double lng_measurement, float accuracy,
+                                    long time_inMilliseconds) {
+            if (accuracy < MIN_ACCURACY) accuracy = MIN_ACCURACY;
+
+            if (variance < 0) {
+                this.time_inMilliseconds = time_inMilliseconds;
+                lat=lat_measurement;
+                lng = lng_measurement;
+                variance = accuracy*accuracy;
+
+            } else {
+                long deltaTime_inMilliseconds = time_inMilliseconds - this.time_inMilliseconds;
+                if (deltaTime_inMilliseconds > 0) {
+                    variance += deltaTime_inMilliseconds * metres_per_second_walking * metres_per_second_walking / 1000;
+                    this.time_inMilliseconds = time_inMilliseconds;
+                }
+                float K = variance / (variance + accuracy * accuracy);
+
+                lat += K * (lat_measurement - lat);
+                lng += K * (lng_measurement - lng);
+
+                variance = (1 - K) * variance;
+            }
+            return new LatLng(lat, lng);
+        }
+    }
 
 }
