@@ -22,6 +22,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
+import com.beyondar.android.opengl.util.LowPassFilter;
 import com.beyondar.android.util.location.BeyondarLocationManager;
 import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
@@ -366,9 +367,9 @@ public class CameraPreview extends FragmentActivity implements
             locationGeoObjectHashMap.put(l, go);
             world.addBeyondarObject(go);
         }
-
-        mBeyondarFragment.setWorld(world);
         mBeyondarFragment.getGLSurfaceView().setMaxDistanceToRender(100);
+        LowPassFilter.ALPHA = 0.09f;
+        mBeyondarFragment.setWorld(world);
         progressDialog.dismiss();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
@@ -436,7 +437,7 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     public void onLocationChanged(Location location) {
         Log.d("New Location", location.getLatitude() + " " + location.getLongitude());
-        Log.d("Distance to old" , "" + location.distanceTo(mLastLocation));
+        Log.d("new Distance" , "" + location.distanceTo(mLastLocation));
         LatLng latLng = gpsFilter.filterGpsData(location.getLatitude(), location.getLongitude(),
                 location.getAccuracy(), System.currentTimeMillis());
 
