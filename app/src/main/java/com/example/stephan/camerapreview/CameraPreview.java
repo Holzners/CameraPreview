@@ -2,6 +2,8 @@ package com.example.stephan.camerapreview;
 
 
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -44,18 +46,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
         SensorEventListener, LocationListener {
 
-    private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 1; // 10 meters
+    private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 1;
 
-    // The minimum time between updates in milliseconds
-    private static final long MIN_TIME_BW_UPDATES = 1000; //
+    private static final long MIN_TIME_BW_UPDATES = 1000;
+
+    private static final String KEY_HISTORY = "History_Prefs_Key";
 
     // flag for GPS status
     boolean isGPSEnabled = false;
@@ -208,6 +213,13 @@ public class CameraPreview extends FragmentActivity implements
 
 
     public void newNavigation(String destination) {
+        SharedPreferences preferences = getPreferences(Context.MODE_PRIVATE);
+        Set<String> targets = new HashSet<>();
+        targets.addAll(preferences.getStringSet(KEY_HISTORY, new HashSet<String>()));
+        targets.add(destination);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putStringSet(KEY_HISTORY,targets).commit();
+
         FrameLayout fm = (FrameLayout) findViewById(R.id.contentPanel);
         fm.addView(mPointer);
         collectedText.setVisibility(View.VISIBLE);
@@ -367,7 +379,6 @@ public class CameraPreview extends FragmentActivity implements
             locationGeoObjectHashMap.put(l, go);
             world.addBeyondarObject(go);
         }
-        mBeyondarFragment.getGLSurfaceView().setMaxDistanceToRender(100);
         LowPassFilter.ALPHA = 0.09f;
         mBeyondarFragment.setWorld(world);
         progressDialog.dismiss();
@@ -540,6 +551,18 @@ public class CameraPreview extends FragmentActivity implements
     }
 
 
+    public void lastTargets(View view){
+        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+        Set<String> targets = prefs.getStringSet(KEY_HISTORY, new HashSet<String>());
+        List<String> targetList = new ArrayList<>();
+        targetList.addAll(targets);
+
+        HistoryFragment fragment = HistoryFragment.newInstance(targetList);
+        FragmentManager fm = getSupportFragmentManager();
+        fm.beginTransaction().replace(R.id.fragmentContainer, fragment).commit();
+    }
+
+
     public class GpsFilter {
         private final float MIN_ACCURACY = 1;
         private float variance = -1;
@@ -574,5 +597,6 @@ public class CameraPreview extends FragmentActivity implements
             return new LatLng(lat, lng);
         }
     }
+
 
 }

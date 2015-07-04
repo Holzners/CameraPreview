@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/background">
+
+    <ListView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="25dp"
+        android:id="@+id/android:list"
+        android:background = "@drawable/list_background"/>
+
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Back"
+        android:id="@+id/backButton"
+        android:onClick="backToStartScreen"
+        android:textColor="@color/material_deep_teal_500"
+        android:background="@color/dim_foreground_disabled_material_dark"
+        android:layout_gravity="right|bottom" />
+
+</FrameLayout>
