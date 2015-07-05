@@ -22,6 +22,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
 import com.beyondar.android.opengl.util.LowPassFilter;
@@ -56,9 +57,9 @@ public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
         SensorEventListener, LocationListener {
 
-    private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 1;
+    private static final long MIN_DISTANCE = 2;
 
-    private static final long MIN_TIME_BW_UPDATES = 1000;
+    private static final long MIN_TIME = 1000;
 
     private static final String KEY_HISTORY = "History_Prefs_Key";
 
@@ -165,8 +166,8 @@ public class CameraPreview extends FragmentActivity implements
                 if (isNetworkEnabled) {
                     locationManager.requestLocationUpdates(
                             LocationManager.NETWORK_PROVIDER,
-                            MIN_TIME_BW_UPDATES,
-                            MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                            MIN_TIME,
+                            MIN_DISTANCE, this);
                     if (locationManager != null) {
                         mLastLocation = locationManager
                                 .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
@@ -176,8 +177,8 @@ public class CameraPreview extends FragmentActivity implements
                 if (isGPSEnabled) {
                     locationManager.requestLocationUpdates(
                             LocationManager.GPS_PROVIDER,
-                            MIN_TIME_BW_UPDATES,
-                            MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                            MIN_TIME,
+                            MIN_DISTANCE, this);
                     Log.d("GPS Enabled", "GPS Enabled");
                     if (locationManager != null) {
                         mLastLocation = locationManager
@@ -562,6 +563,14 @@ public class CameraPreview extends FragmentActivity implements
         fm.beginTransaction().replace(R.id.fragmentContainer, fragment).commit();
     }
 
+    public void radarSearch(String keyWord){
+        if(mLastLocation != null) {
+            new GoogleRadarTask(keyWord, mLastLocation.getLatitude(), mLastLocation.getLongitude(),1000, this).execute();
+
+        }else {
+            Toast.makeText(this, "No Location found", Toast.LENGTH_SHORT).show();
+        }
+    }
 
     public class GpsFilter {
         private final float MIN_ACCURACY = 1;

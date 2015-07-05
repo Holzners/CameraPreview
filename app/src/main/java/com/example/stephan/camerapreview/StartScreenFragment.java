@@ -47,12 +47,23 @@ public class StartScreenFragment extends Fragment{
                 return false;
             }
         });
-        destinationText.setAdapter(new PlacesAutoCompleteAdapter(getActivity(), android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
+        destinationText.setAdapter(new GooglePlacesHelper(getActivity(), android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
         Button button = (Button) getView().findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onClickStart();
+            }
+        });
+        Button radarSearch = (Button) getView().findViewById(R.id.radarSearch);
+        radarSearch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(destinationText.getText().toString() != ""){
+                    ((CameraPreview)getActivity()).radarSearch(destinationText.getText().toString());
+                }else{
+                    Toast.makeText(getActivity(), "Destination can not be empty", Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }

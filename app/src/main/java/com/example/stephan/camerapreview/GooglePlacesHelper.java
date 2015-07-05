@@ -29,9 +29,9 @@ import java.util.List;
  * Adapter Klasse füllt ListView:
  * verbindet mit Google Places und gibt Auto Complete Vorschläge für Places
  */
-public class PlacesAutoCompleteAdapter  extends ArrayAdapter<String> implements Filterable {
+public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterable {
 
-    public String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
+    public static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
 
     private static final String PLACES_AUTOCOMPLETE_API = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
 
@@ -43,8 +43,7 @@ public class PlacesAutoCompleteAdapter  extends ArrayAdapter<String> implements 
 
     private LatLngBounds mBounds;
 
-
-    public PlacesAutoCompleteAdapter(Context context, int resource, GoogleApiClient mGoogleApiClient) {
+    public GooglePlacesHelper(Context context, int resource, GoogleApiClient mGoogleApiClient) {
         super(context, resource);
         this.mGoogleApiClient = mGoogleApiClient;
         Log.d("Adapter", "Adapter init");
@@ -89,7 +88,6 @@ public class PlacesAutoCompleteAdapter  extends ArrayAdapter<String> implements 
         };
         return filter;
     }
-
     private ArrayList<String> autocomplete(String input) {
         ArrayList<String> resultList = new ArrayList<String>();
 
@@ -123,6 +121,7 @@ public class PlacesAutoCompleteAdapter  extends ArrayAdapter<String> implements 
         return resultList;
     }
 
+
     public static class PlacesResult {
 
         @Key("predictions")
@@ -139,4 +138,7 @@ public class PlacesAutoCompleteAdapter  extends ArrayAdapter<String> implements 
         public String id;
 
     }
+
+
+
 }
