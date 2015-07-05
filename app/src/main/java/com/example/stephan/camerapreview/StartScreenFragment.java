@@ -59,7 +59,7 @@ public class StartScreenFragment extends Fragment{
         radarSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(destinationText.getText().toString() != ""){
+                if(!destinationText.getText().toString().equals("")){
                     ((CameraPreview)getActivity()).radarSearch(destinationText.getText().toString());
                 }else{
                     Toast.makeText(getActivity(), "Destination can not be empty", Toast.LENGTH_SHORT).show();
@@ -69,7 +69,7 @@ public class StartScreenFragment extends Fragment{
     }
 
     public void onClickStart(){
-        if(destinationText.getText().toString() != ""){
+        if(!destinationText.getText().toString().equals("")){
             ((CameraPreview)getActivity()).newNavigation(destinationText.getText().toString());
         }else{
             Toast.makeText(getActivity(), "Destination can not be empty", Toast.LENGTH_SHORT).show();
