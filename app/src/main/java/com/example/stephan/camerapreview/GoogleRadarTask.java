@@ -1,7 +1,5 @@
 package com.example.stephan.camerapreview;
 
-import android.location.Address;
-import android.location.Geocoder;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -20,7 +18,6 @@ import com.google.api.client.util.Key;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Created by Stephan on 05.07.15.
@@ -29,6 +26,7 @@ public class GoogleRadarTask extends AsyncTask {
 
     private static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
     private static final String PLACES_SEARCH_API = "https://maps.googleapis.com/maps/api/place/radarsearch/json";
+    private static final String PLACES_DETAILS_API = "https://maps.googleapis.com/maps/api/place/details/json";
     private static final HttpTransport HTTP_TRANSPORT = AndroidHttp.newCompatibleTransport();
     private static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
@@ -71,33 +69,51 @@ public class GoogleRadarTask extends AsyncTask {
             PlaceRadarSearchList placeRadarSearchList = httpResponse.parseAs(PlaceRadarSearchList.class);
             resultList = placeRadarSearchList.placeRadarSearchesList;
             for(PlaceRadarSearch p : resultList){
-                Log.d("Place Loc", p.geoLocation.location.lat +" " + p.geoLocation.location.lng);
-                getAddress(p.geoLocation.location.lat, p.geoLocation.location.lng);
+                PlaceDetails det = details(p.reference);
+                p.name = det.name + "";
+                p.address = det.address;
             }
 
         } catch (IOException ie) {
             Log.e("Error", "Error processing Request results", ie);
         }
 
-
+        main.processRadarData(resultList);
 
         return null;
     }
 
-    public void getAddress(double lat, double lng) {
-        Geocoder geocoder = new Geocoder(main, Locale.getDefault());
+    public static PlaceDetails details(String place_id) {
         try {
-            List<Address> addresses = geocoder.getFromLocation(lat, lng, 1);
-            Address obj = addresses.get(0);
-            String add = obj.getLocality();
+            HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(
+                    new HttpRequestInitializer() {
+                        @Override
+                        public void initialize(HttpRequest request) {
+                            request.setParser(new JsonObjectParser(JSON_FACTORY));
+                        }
+                    }
+            );
 
-            Log.v("IGA", "Address" + add);
+            GenericUrl url = new GenericUrl(PLACES_DETAILS_API);
+            url.put("sensor", false);
+            url.put("key", PLACES_API_KEY);
+            url.put("reference", place_id);
 
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            HttpRequest request = requestFactory.buildGetRequest(url);
+            HttpResponse httpResponse = request.execute();
+
+            PlaceResults details = httpResponse.parseAs(PlaceResults.class);
+
+            return details.result;
+
+
+        }catch (IOException ie){
+            ie.printStackTrace();
+            return null;
         }
     }
+
+
 
     public static class PlaceRadarSearchList {
 
@@ -117,6 +133,11 @@ public class GoogleRadarTask extends AsyncTask {
 
         @Key("reference")
         public String reference;
+
+        public String name;
+
+        public String address;
+
     }
 
     public static class GeoLocation {
@@ -133,6 +154,27 @@ public class GoogleRadarTask extends AsyncTask {
 
         @Key("lng")
         public double lng;
+
+    }
+
+
+    public static class PlaceResults {
+
+        @Key("result")
+        public PlaceDetails result;
+
+    }
+
+    public static class PlaceDetails {
+
+        @Key("formatted_address")
+        public String address;
+
+        @Key("name")
+        public String name;
+
+        @Key("place_id")
+        public String place_id;
 
     }
 

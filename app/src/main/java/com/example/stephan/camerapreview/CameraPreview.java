@@ -4,6 +4,8 @@ package com.example.stephan.camerapreview;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -15,18 +17,22 @@ import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
 import com.beyondar.android.opengl.util.LowPassFilter;
 import com.beyondar.android.util.location.BeyondarLocationManager;
+import com.beyondar.android.world.BeyondarObject;
+import com.beyondar.android.world.BeyondarObjectList;
 import com.beyondar.android.world.GeoObject;
 import com.beyondar.android.world.World;
 import com.google.android.gms.common.ConnectionResult;
@@ -43,6 +49,8 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -221,13 +229,13 @@ public class CameraPreview extends FragmentActivity implements
         SharedPreferences.Editor editor = preferences.edit();
         editor.putStringSet(KEY_HISTORY,targets).commit();
 
-        FrameLayout fm = (FrameLayout) findViewById(R.id.contentPanel);
-        fm.addView(mPointer);
+        FrameLayout frame = (FrameLayout) findViewById(R.id.contentPanel);
+        frame.addView(mPointer);
+        backButton.setVisibility(View.VISIBLE);
+        refreshButton.setVisibility(View.VISIBLE);
         collectedText.setVisibility(View.VISIBLE);
         collectedText.setText("0/0");
 
-        backButton.setVisibility(View.VISIBLE);
-        refreshButton.setVisibility(View.VISIBLE);
         collectedText.setVisibility(View.VISIBLE);
         this.destination = destination;
         if (mLastLocation != null) {
@@ -236,6 +244,7 @@ public class CameraPreview extends FragmentActivity implements
         }
         progressDialog = ProgressDialog.show(this, "Processing",
                 "calculate route", true);
+
         addBeyondArFragment();
     }
 
@@ -466,7 +475,7 @@ public class CameraPreview extends FragmentActivity implements
             world.setLocation(location);
             if (locationsList != null) {
                 int index = -1;
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 10 && i < locationsList.size(); i++) {
                     if (location.distanceTo(locationsList.get(i)) < 10) {
                         index = i;
                         break;
@@ -565,10 +574,94 @@ public class CameraPreview extends FragmentActivity implements
 
     public void radarSearch(String keyWord){
         if(mLastLocation != null) {
+            addBeyondArFragment();
+            FrameLayout frame = (FrameLayout) findViewById(R.id.contentPanel);
+            frame.addView(mPointer);
+            backButton.setVisibility(View.VISIBLE);
+            refreshButton.setVisibility(View.VISIBLE);
             new GoogleRadarTask(keyWord, mLastLocation.getLatitude(), mLastLocation.getLongitude(),1000, this).execute();
-
+            progressDialog = ProgressDialog.show(this, "Processing",
+                    "find places", true);;
         }else {
             Toast.makeText(this, "No Location found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void processRadarData(List<GoogleRadarTask.PlaceRadarSearch> resultList){
+
+        world = new World(this);
+        world.setLocation(mLastLocation);
+        world.setDefaultImage(R.drawable.pfeil);
+        locationGeoObjectHashMap.clear();
+        locationsList = new ArrayList<>();
+
+        for (GoogleRadarTask.PlaceRadarSearch p : resultList) {
+            Location l = new Location(LOCATION_SERVICE);
+            l.setLatitude(p.geoLocation.location.lat);
+            l.setLongitude(p.geoLocation.location.lng);
+            locationsList.add(l);
+            String title = p.name + "\n"  + (int)l.distanceTo(mLastLocation) + " m";
+            GeoObject go = new GeoObject(1l);
+            go.setName(title);
+            go.setGeoPosition(l.getLatitude(), l.getLongitude());
+            double lat = go.getLatitude();
+            double lng = go.getLongitude();
+
+            locationGeoObjectHashMap.put(l,go);
+            world.addBeyondarObject(go);
+        }
+        replaceImagesByStaticViews(world);
+        LowPassFilter.ALPHA = 0.04f;
+        mBeyondarFragment.setMaxDistanceToRender(1500);
+        mBeyondarFragment.setPullCloserDistance(20);
+        mBeyondarFragment.setPushAwayDistance(15);
+        mBeyondarFragment.setWorld(world);
+
+        progressDialog.dismiss();
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
+
+    }
+
+
+    private void replaceImagesByStaticViews(World world) {
+        String path = getExternalFilesDir(null).getAbsoluteFile() + "/tmp/";
+
+        for (BeyondarObjectList beyondarList : world.getBeyondarObjectLists()) {
+            for (BeyondarObject beyondarObject : beyondarList) {
+
+                TextView textView = new TextView(this);
+                textView.setText(beyondarObject.getName());
+                textView.setTextSize(14);
+                textView.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+                textView.setTextColor(getResources().getColor(R.color.material_deep_teal_500));
+                textView.setBackgroundColor(getResources().getColor(R.color.dim_foreground_material_dark));
+                textView.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                textView.layout(0, 0, textView.getMeasuredWidth(), textView.getMeasuredHeight());
+                textView.setGravity(Gravity.CENTER);
+
+
+                try{
+                    String[] nameSplit = beyondarObject.getName().split("\n");
+                    String imageName = "viewImage_"+ nameSplit[0] + ".png";
+
+                    FileOutputStream file = new FileOutputStream(new File(path, imageName));
+                    Bitmap b = Bitmap.createBitmap(textView.getWidth(), textView.getHeight(), Bitmap.Config.ARGB_8888);
+                    Canvas c = new Canvas(b);
+                    textView.draw(c);
+                    b.compress(Bitmap.CompressFormat.PNG, 100, file);
+                    file.close();
+                    b.recycle();
+
+                    beyondarObject.setImageUri(path+imageName);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            }
         }
     }
 
