@@ -59,7 +59,7 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
             url.put("mode", "walking");
 
             HttpRequest request = requestFactory.buildGetRequest(url);
-
+            Log.d("url" , url.toString());
             HttpResponse httpResponse = request.execute();
             DirectionsResult directionsResult = httpResponse.parseAs(DirectionsResult.class);
                 String encodedPoints = directionsResult.routes.get(0).overviewPolyLine.points;
@@ -69,7 +69,7 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
 
         } catch (Exception ex) {
             ex.printStackTrace();
-            Log.d("Failed","a");
+            Log.d("Failed",destination);
         }
         return null;
     }

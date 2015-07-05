@@ -31,6 +31,7 @@ import android.widget.Toast;
 import com.beyondar.android.fragment.BeyondarFragmentSupport;
 import com.beyondar.android.opengl.util.LowPassFilter;
 import com.beyondar.android.util.location.BeyondarLocationManager;
+import com.beyondar.android.view.OnClickBeyondarObjectListener;
 import com.beyondar.android.world.BeyondarObject;
 import com.beyondar.android.world.BeyondarObjectList;
 import com.beyondar.android.world.GeoObject;
@@ -63,7 +64,8 @@ import java.util.Set;
 
 public class CameraPreview extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        SensorEventListener, LocationListener {
+        SensorEventListener, LocationListener,
+        OnClickBeyondarObjectListener{
 
     private static final long MIN_DISTANCE = 2;
 
@@ -218,6 +220,7 @@ public class CameraPreview extends FragmentActivity implements
         mSensorManager.unregisterListener(this, mMagnetometer);
         BeyondarLocationManager.disable();
         locationManager.removeUpdates(this);
+        cleanTempFolder();
     }
 
 
@@ -600,12 +603,10 @@ public class CameraPreview extends FragmentActivity implements
             l.setLatitude(p.geoLocation.location.lat);
             l.setLongitude(p.geoLocation.location.lng);
             locationsList.add(l);
-            String title = p.name + "\n"  + (int)l.distanceTo(mLastLocation) + " m";
+            String title = p.name + "\n" + p.address + "\n"  + (int)l.distanceTo(mLastLocation) + " m";
             GeoObject go = new GeoObject(1l);
             go.setName(title);
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
-            double lat = go.getLatitude();
-            double lng = go.getLongitude();
 
             locationGeoObjectHashMap.put(l,go);
             world.addBeyondarObject(go);
@@ -616,7 +617,7 @@ public class CameraPreview extends FragmentActivity implements
         mBeyondarFragment.setPullCloserDistance(20);
         mBeyondarFragment.setPushAwayDistance(15);
         mBeyondarFragment.setWorld(world);
-
+        mBeyondarFragment.setOnClickBeyondarObjectListener(this);
         progressDialog.dismiss();
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
@@ -631,7 +632,10 @@ public class CameraPreview extends FragmentActivity implements
             for (BeyondarObject beyondarObject : beyondarList) {
 
                 TextView textView = new TextView(this);
-                textView.setText(beyondarObject.getName());
+
+                String[] split = beyondarObject.getName().split("\n");
+
+                textView.setText(split[0] +"\n"+split[2] );
                 textView.setTextSize(14);
                 textView.setLayoutParams(new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -664,6 +668,28 @@ public class CameraPreview extends FragmentActivity implements
             }
         }
     }
+    private void cleanTempFolder() {
+        File tmpFolder = new File(getExternalFilesDir(null).getAbsoluteFile() + "/tmp/");
+        if (tmpFolder.isDirectory()) {
+            String[] children = tmpFolder.list();
+            for (int i = 0; i < children.length; i++) {
+                if (children[i].startsWith("viewImage_")) {
+                    new File(tmpFolder, children[i]).delete();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onClickBeyondarObject(ArrayList<BeyondarObject> beyondarObjects) {
+        if (beyondarObjects.size() > 0) {
+            FrameLayout frame = (FrameLayout) findViewById(R.id.contentPanel);
+            frame.removeView(mPointer);
+            String[] splitString = beyondarObjects.get(0).getName().split("\n");
+            newNavigation(splitString[1]);
+        }
+    }
+
 
     public class GpsFilter {
         private final float MIN_ACCURACY = 1;
