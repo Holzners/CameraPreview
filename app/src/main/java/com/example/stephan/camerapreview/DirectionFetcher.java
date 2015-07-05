@@ -23,6 +23,7 @@ import java.util.List;
 
 /**
  * Created by Stephan on 15.06.15.
+ * Klasse dient zur Routenberechnung zwische zwei punkten
  */
 public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
 
@@ -42,7 +43,11 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
         this.preview = preview;
     }
 
-
+    /**
+     * Stellt den Routenberechnungs GetRequest an die Directions Api
+     * anschließend werden die LatLng s der POI an die MainActivity übergeben
+     * //TODO hier wäre ein BroadcastReciever schöner
+     */
     protected String doInBackground(URL... urls) {
         try {
             HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
@@ -74,17 +79,25 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
         return null;
     }
 
-
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class DirectionsResult {
         @Key("routes")
         public List<Route> routes;
     }
 
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class Route {
         @Key("overview_polyline")
         public OverviewPolyLine overviewPolyLine;
     }
 
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class OverviewPolyLine {
         @Key("points")
         public String points;

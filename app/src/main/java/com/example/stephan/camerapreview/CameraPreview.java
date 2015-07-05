@@ -41,19 +41,9 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.protocol.BasicHttpContext;
-import org.apache.http.protocol.HttpContext;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,24 +58,23 @@ public class CameraPreview extends FragmentActivity implements
         OnClickBeyondarObjectListener{
 
     private static final long MIN_DISTANCE = 2;
-
     private static final long MIN_TIME = 1000;
-
     private static final String KEY_HISTORY = "History_Prefs_Key";
 
-    // flag for GPS status
-    boolean isGPSEnabled = false;
+    private String destination;
 
-    // flag for network status
-    boolean isNetworkEnabled = false;
-
-    boolean canGetLocation = false;
-
+    private boolean isGPSEnabled = false;
+    private boolean isNetworkEnabled = false;
+    private boolean canGetLocation = false;
+    private boolean isNavigationInit = false;
 
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
+    private LocationManager locationManager;
+    private List<Location> locationsList;
+    private World world;
+    private HashMap<Location, GeoObject> locationGeoObjectHashMap;
 
-    private ImageView mPointer;
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     private Sensor mMagnetometer;
@@ -96,100 +85,78 @@ public class CameraPreview extends FragmentActivity implements
     private float[] mR = new float[9];
     private float[] mOrientation = new float[3];
     private float mCurrentDegree = 0f;
-    int countSelected = 0;
-    int countToSelect = 0;
 
-    private boolean isNavigationInit = false;
-
-    private List<Location> locationsList;
-    private World world;
+    private int countSelected = 0;
+    private int countToSelect = 0;
 
     private BeyondarFragmentSupport mBeyondarFragment;
-    private HashMap<Location, GeoObject> locationGeoObjectHashMap;
     private TextView collectedText;
-
-
-    private LocationManager locationManager;
-
-    private String destination;
-
     private ProgressDialog progressDialog;
-
+    private ImageView mPointer;
     private Button backButton, refreshButton;
 
     private GpsFilter gpsFilter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera_preview);
-
-        mPointer = (ImageView) findViewById(R.id.imageView);
 
         buildGoogleApiClient();
 
         gpsFilter = new GpsFilter();
-        //mBeyondarFragment = (BeyondarFragmentSupport) getSupportFragmentManager().findFragmentById(R.id.beyondarFragment);
-
+        mPointer = (ImageView) findViewById(R.id.imageView);
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.ic_marker);
 
-
-        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-
         locationGeoObjectHashMap = new HashMap<>();
 
         collectedText = (TextView) findViewById(R.id.pointText);
-
+        backButton = (Button) findViewById(R.id.backButton);
+        refreshButton = (Button) findViewById(R.id.revalButton);
 
         BeyondarLocationManager.setLocationManager((locationManager));
         BeyondarLocationManager.addWorldLocationUpdate(world);
         BeyondarLocationManager.addLocationListener(this);
 
-        backButton = (Button) findViewById(R.id.backButton);
-        refreshButton = (Button) findViewById(R.id.revalButton);
         backToStartScreen(null);
         initLocationListener();
     }
 
+    /**
+     * Initialisiere den Location Update Request
+     */
     private void initLocationListener() {
         try {
             // getting GPS status
             isGPSEnabled = locationManager
                     .isProviderEnabled(LocationManager.GPS_PROVIDER);
-
             // getting network status
             isNetworkEnabled = locationManager
                     .isProviderEnabled(LocationManager.NETWORK_PROVIDER);
             if (!isGPSEnabled && !isNetworkEnabled) {
-                // no network provider is enabled
+               Toast.makeText(this, "GPS disabled", Toast.LENGTH_SHORT).show();
             } else {
                 this.canGetLocation = true;
-                // First get location from GPS Provider
 
                 if (isNetworkEnabled) {
                     locationManager.requestLocationUpdates(
-                            LocationManager.NETWORK_PROVIDER,
-                            MIN_TIME,
-                            MIN_DISTANCE, this);
+                            LocationManager.NETWORK_PROVIDER, MIN_TIME, MIN_DISTANCE, this);
                     if (locationManager != null) {
                         mLastLocation = locationManager
                                 .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                     }
-
                 }
                 if (isGPSEnabled) {
                     locationManager.requestLocationUpdates(
-                            LocationManager.GPS_PROVIDER,
-                            MIN_TIME,
-                            MIN_DISTANCE, this);
-                    Log.d("GPS Enabled", "GPS Enabled");
+                            LocationManager.GPS_PROVIDER, MIN_TIME, MIN_DISTANCE, this);
+
                     if (locationManager != null) {
                         mLastLocation = locationManager
                                 .getLastKnownLocation(LocationManager.GPS_PROVIDER);
@@ -200,10 +167,7 @@ public class CameraPreview extends FragmentActivity implements
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.d("GPS Enabled", canGetLocation + "");
         if (canGetLocation) BeyondarLocationManager.disable();
-
-
     }
 
     @Override
@@ -223,7 +187,10 @@ public class CameraPreview extends FragmentActivity implements
         cleanTempFolder();
     }
 
-
+    /**
+     * Neue Navigation wird direkt in Shared Preferences abgespeichert
+     * @param destination
+     */
     public void newNavigation(String destination) {
         SharedPreferences preferences = getPreferences(Context.MODE_PRIVATE);
         Set<String> targets = new HashSet<>();
@@ -238,19 +205,20 @@ public class CameraPreview extends FragmentActivity implements
         refreshButton.setVisibility(View.VISIBLE);
         collectedText.setVisibility(View.VISIBLE);
         collectedText.setText("0/0");
-
         collectedText.setVisibility(View.VISIBLE);
         this.destination = destination;
-        if (mLastLocation != null) {
-            startNavigation(destination);
 
-        }
+        if (mLastLocation != null) startNavigation(destination);
+
         progressDialog = ProgressDialog.show(this, "Processing",
                 "calculate route", true);
 
         addBeyondArFragment();
     }
 
+    /**
+     * Initialisiert die Google Api Client Connection
+     */
     private synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -276,28 +244,15 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     @Override
-    public void onConnectionFailed(ConnectionResult result) {
-        // Refer to the javadoc for ConnectionResult to see what error codes might be returned in
-        // onConnectionFailed.
-        Log.i("GoogleApiConnection", "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
-    }
-
-    @Override
-    public void onConnected(Bundle bundle) {
-
-    }
-
-    @Override
     public void onConnectionSuspended(int cause) {
-        // The connection to Google Play services was lost for some reason. We call connect() to
-        // attempt to re-establish the connection.
         mGoogleApiClient.connect();
     }
 
-
+    /**
+     * Eigener Sensor Listener für Kompassrotation
+     */
     @Override
     public void onSensorChanged(SensorEvent event) {
-
 
         if (event.sensor == mAccelerometer) {
             mLastAccelerometer = lowPass(event.values.clone(), mLastAccelerometer);
@@ -316,7 +271,6 @@ public class CameraPreview extends FragmentActivity implements
             SensorManager.getRotationMatrix(mR, event.values.clone(), mLastAccelerometer, mLastMagnetometer);
             SensorManager.remapCoordinateSystem(mR, SensorManager.AXIS_X, SensorManager.AXIS_Z, mR);
             SensorManager.getOrientation(mR, mOrientation);
-
 
             float azimuthInRadians = mOrientation[0];
             float azimuthInDegress = (float) (Math.toDegrees(azimuthInRadians) + 360) % 360;
@@ -338,11 +292,12 @@ public class CameraPreview extends FragmentActivity implements
 
     }
 
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-    }
-
+    /**
+     * LowPass Filter zum glätten der Sensor Daten
+     * @param input
+     * @param output
+     * @return
+     */
     private float[] lowPass(float[] input, float[] output) {
         final float ALPHA = 0.1f;
 
@@ -355,40 +310,42 @@ public class CameraPreview extends FragmentActivity implements
         return output;
     }
 
+    /**
+     * Setzt Liste an Routenpunkte für Zielführung
+     * @param latLngs
+     */
     public void setLatLng(List<LatLng> latLngs) {
         LatLng tmp = latLngs.get(0);
         Location location = new Location(LOCATION_SERVICE);
         location.setLatitude(tmp.latitude);
         location.setLongitude(tmp.longitude);
 
-        //  location.setAltitude(getElevationFromGoogleMaps(tmp.longitude, tmp.latitude));
-
         locationsList = new ArrayList<>();
         for (int i = 0; i < latLngs.size(); i++) {
             Location nextLocation = new Location(LOCATION_SERVICE);
             nextLocation.setLatitude(latLngs.get(i).latitude);
             nextLocation.setLongitude(latLngs.get(i).longitude);
-            // nextLocation.setAltitude(getElevationFromGoogleMaps(latLngs.get(i).longitude, latLngs.get(i).latitude));
             splitDistanceToLowerThan10m(location, nextLocation, locationsList);
             location = nextLocation;
         }
         this.countToSelect = locationsList.size();
-        Log.d("Locations:", "up to date");
         updateLocations();
     }
 
+    /**
+     * Initialisiert die Geoobjekte in der 3D Welt
+     */
     private void updateLocations() {
         for (Location l : locationsList) {
 
             GeoObject go = new GeoObject(1l);
 
-            if (locationsList.size() - 1 > locationsList.indexOf(l))
-                go.setImageResource(R.drawable.ic_marker);
+            if (locationsList.size() - 1 > locationsList.indexOf(l)) go.setImageResource(R.drawable.ic_marker);
             else go.setImageResource(R.drawable.pfeil);
+
             go.setName("position");
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
 
-            //   allLocationPoints.get(i).getAltitude());
             locationGeoObjectHashMap.put(l, go);
             world.addBeyondarObject(go);
         }
@@ -400,47 +357,12 @@ public class CameraPreview extends FragmentActivity implements
     }
 
     /**
-     * Unbenutzt da Altitudedaten leider zu ungenau
-     *
-     * @param longitude
-     * @param latitude
-     * @return
+     * Prüft die Entfernung zwischen zwei Punkten und berechnet Einen neuen Punkt in der Mitte,
+     * falls die beiden über 20 m entfernt sind
+     * @param start
+     * @param dest
+     * @param result
      */
-    private double getElevationFromGoogleMaps(double longitude, double latitude) {
-        double result = Double.NaN;
-        HttpClient httpClient = new DefaultHttpClient();
-        HttpContext localContext = new BasicHttpContext();
-        String url = "http://maps.googleapis.com/maps/api/elevation/"
-                + "xml?locations=" + String.valueOf(latitude)
-                + "," + String.valueOf(longitude)
-                + "&sensor=true";
-        HttpGet httpGet = new HttpGet(url);
-        try {
-            HttpResponse response = httpClient.execute(httpGet, localContext);
-            HttpEntity entity = response.getEntity();
-            if (entity != null) {
-                InputStream instream = entity.getContent();
-                int r = -1;
-                StringBuffer respStr = new StringBuffer();
-                while ((r = instream.read()) != -1)
-                    respStr.append((char) r);
-                String tagOpen = "<elevation>";
-                String tagClose = "</elevation>";
-                if (respStr.indexOf(tagOpen) != -1) {
-                    int start = respStr.indexOf(tagOpen) + tagOpen.length();
-                    int end = respStr.indexOf(tagClose);
-                    String value = respStr.substring(start, end);
-                    result = (Double.parseDouble(value)); // convert from meters to feet
-                }
-                instream.close();
-            }
-        } catch (ClientProtocolException e) {
-        } catch (IOException e) {
-        }
-
-        return result;
-    }
-
     private void splitDistanceToLowerThan10m(Location start, Location dest, List<Location> result) {
         if (!result.contains(start)) result.add(start);
         if (!result.contains(dest)) result.add(dest);
@@ -468,7 +390,7 @@ public class CameraPreview extends FragmentActivity implements
         Location location1 = new Location(LOCATION_SERVICE);
         location1.setLongitude(latLng.longitude);
         location1.setLatitude(latLng.latitude);
-        Log.d("smoothed Distance" , "" + location1.distanceTo(mLastLocation));
+        Log.d("smoothed Distance", "" + location1.distanceTo(mLastLocation));
         mLastLocation.setLongitude(latLng.longitude);
         mLastLocation.setLatitude(latLng.latitude);
 
@@ -503,6 +425,9 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
+    /**
+     * Fügt Ar Fragment an
+     */
     public void addBeyondArFragment() {
         mBeyondarFragment = new BeyondarFragmentSupport();
         FragmentManager fm = getSupportFragmentManager();
@@ -510,7 +435,10 @@ public class CameraPreview extends FragmentActivity implements
 
     }
 
-
+    /**
+     * Startet neue Navigationsanfrage
+     * @param destination
+     */
     public void startNavigation(String destination) {
         isNavigationInit = true;
         LatLng myLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
@@ -522,6 +450,10 @@ public class CameraPreview extends FragmentActivity implements
         directionFetcher.execute();
     }
 
+    /**
+     * Zurückkehren zum Startmenü Fragment
+     * @param view
+     */
     public void backToStartScreen(View view) {
         destination = "";
         FrameLayout fl = (FrameLayout) findViewById(R.id.contentPanel);
@@ -543,27 +475,20 @@ public class CameraPreview extends FragmentActivity implements
         fm.beginTransaction().replace(R.id.fragmentContainer, startScreenFragment).commit();
     }
 
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-
-    }
-
+    /**
+     * LocationListener neu setzten
+     * @param view
+     */
     public void refreshGps(View view) {
         locationManager.removeUpdates(this);
         initLocationListener();
     }
 
-
+    /**
+     * Zieht letzte Ziele aus Shared Preferences und lässt diese in neuem Fragment anzeigen
+     * TODO SharedPreferences Einträge mit Integer und Strings loopen da Sets keine Sortierung kennen
+     * @param view
+     */
     public void lastTargets(View view){
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         Set<String> targets = prefs.getStringSet(KEY_HISTORY, new HashSet<String>());
@@ -575,6 +500,10 @@ public class CameraPreview extends FragmentActivity implements
         fm.beginTransaction().replace(R.id.fragmentContainer, fragment).commit();
     }
 
+    /**
+     * Stellt suchanfrage nach Nutzereingabe
+     * @param keyWord
+     */
     public void radarSearch(String keyWord){
         if(mLastLocation != null) {
             addBeyondArFragment();
@@ -590,8 +519,12 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
+    /**
+     * Verarbeitet die Response der Google Places Api RadarSearch Requests
+     * Erstellt für jeden Places Eintrag ein neues Geoobject
+     * @param resultList
+     */
     public void processRadarData(List<GoogleRadarTask.PlaceRadarSearch> resultList){
-
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.pfeil);
@@ -607,13 +540,16 @@ public class CameraPreview extends FragmentActivity implements
             GeoObject go = new GeoObject(1l);
             go.setName(title);
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
-
             locationGeoObjectHashMap.put(l,go);
             world.addBeyondarObject(go);
         }
+        //den Objekte TextOverlays zuweisen
         replaceImagesByStaticViews(world);
+        //Smothing der Sensordaten
         LowPassFilter.ALPHA = 0.04f;
+        //Nur objekte bis 1500 meter entfernung rendern
         mBeyondarFragment.setMaxDistanceToRender(1500);
+        //Alle Objekte sollen zwischen 15 und 20 Meter "entfernt wirken"
         mBeyondarFragment.setPullCloserDistance(20);
         mBeyondarFragment.setPushAwayDistance(15);
         mBeyondarFragment.setWorld(world);
@@ -624,7 +560,11 @@ public class CameraPreview extends FragmentActivity implements
 
     }
 
-
+    /**
+     * Erzeugt für jedes Geoobjekt aus einer Textview ein Bitmap Image da das Frame Work keine
+     * TextOverlays unterstütz
+     * @param world
+     */
     private void replaceImagesByStaticViews(World world) {
         String path = getExternalFilesDir(null).getAbsoluteFile() + "/tmp/";
 
@@ -651,11 +591,11 @@ public class CameraPreview extends FragmentActivity implements
                 try{
                     String[] nameSplit = beyondarObject.getName().split("\n");
                     String imageName = "viewImage_"+ nameSplit[0] + ".png";
-
                     FileOutputStream file = new FileOutputStream(new File(path, imageName));
                     Bitmap b = Bitmap.createBitmap(textView.getWidth(), textView.getHeight(), Bitmap.Config.ARGB_8888);
                     Canvas c = new Canvas(b);
                     textView.draw(c);
+
                     b.compress(Bitmap.CompressFormat.PNG, 100, file);
                     file.close();
                     b.recycle();
@@ -668,6 +608,10 @@ public class CameraPreview extends FragmentActivity implements
             }
         }
     }
+
+    /**
+     * Löschen der zuvor erzeugten Bilder aus dem tmp folder bei onPause
+     */
     private void cleanTempFolder() {
         File tmpFolder = new File(getExternalFilesDir(null).getAbsoluteFile() + "/tmp/");
         if (tmpFolder.isDirectory()) {
@@ -680,6 +624,10 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
+    /**
+     * Click auf GeoObjekt im Radar Modus startet Navigation zum Ort
+     * @param beyondarObjects
+     */
     @Override
     public void onClickBeyondarObject(ArrayList<BeyondarObject> beyondarObjects) {
         if (beyondarObjects.size() > 0) {
@@ -690,7 +638,9 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
-
+    /**
+     * einfacher Kalman Filter zum Glätten ungenauer Gps Daten
+     */
     public class GpsFilter {
         private final float MIN_ACCURACY = 1;
         private float variance = -1;
@@ -699,10 +649,20 @@ public class CameraPreview extends FragmentActivity implements
         private double lat;
         private double lng;
 
+        /**
+         * Methode zum filtern Ungenauer Gps Messungen
+         * @param lat_measurement - latitude der letzen Messung
+         * @param lng_measurement - longitude der letzen Messung
+         * @param accuracy - Genauigkeit der letzten Messung
+         * @param time_inMilliseconds - Genauer Zeitpunkt des Erhalts der Messdaten
+         * @return
+         */
         public LatLng filterGpsData(double lat_measurement, double lng_measurement, float accuracy,
                                     long time_inMilliseconds) {
+
             if (accuracy < MIN_ACCURACY) accuracy = MIN_ACCURACY;
 
+            //init der Variablen wenn noch nicht gesetzt
             if (variance < 0) {
                 this.time_inMilliseconds = time_inMilliseconds;
                 lat=lat_measurement;
@@ -711,20 +671,43 @@ public class CameraPreview extends FragmentActivity implements
 
             } else {
                 long deltaTime_inMilliseconds = time_inMilliseconds - this.time_inMilliseconds;
+
                 if (deltaTime_inMilliseconds > 0) {
+                    //Berechnung der Varianz zur aktuellen Messung anhand der Konstante m/s /1000 für werte in Millis
                     variance += deltaTime_inMilliseconds * metres_per_second_walking * metres_per_second_walking / 1000;
                     this.time_inMilliseconds = time_inMilliseconds;
                 }
+
+                // k wird mit der Genauigkeit der aktuellen Messung und
+                // der bekannten Varianz aus allen zuvor stattgefunden Messungen errechnet
                 float K = variance / (variance + accuracy * accuracy);
 
+                //smoothing der Location Daten
                 lat += K * (lat_measurement - lat);
                 lng += K * (lng_measurement - lng);
 
+                //Berechnung der neuen Varianz
                 variance = (1 - K) * variance;
             }
             return new LatLng(lat, lng);
         }
     }
 
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {}
 
+    @Override
+    public void onProviderEnabled(String provider) { }
+
+    @Override
+    public void onProviderDisabled(String provider) { }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult result) { }
+
+    @Override
+    public void onConnected(Bundle bundle) { }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) { }
 }

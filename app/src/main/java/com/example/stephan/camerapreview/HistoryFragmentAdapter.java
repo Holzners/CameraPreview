@@ -10,7 +10,7 @@ import android.widget.TextView;
 import java.util.List;
 
 /**
- * Created by Stephan on 04.07.15.
+ * Adapter zur Darstellung der einzelnen Zeilen Der History Liste
  */
 public class HistoryFragmentAdapter extends ArrayAdapter {
 

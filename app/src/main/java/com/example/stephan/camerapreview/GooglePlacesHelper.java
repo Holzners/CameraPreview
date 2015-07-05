@@ -7,7 +7,6 @@ import android.widget.Filter;
 import android.widget.Filterable;
 
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
@@ -26,22 +25,19 @@ import java.util.List;
 /**
  * Created by Stephan on 15.06.15.
  *
- * Adapter Klasse füllt ListView:
+ * Adapter Klasse füllt ListView an Suchvorschlägen:
  * verbindet mit Google Places und gibt Auto Complete Vorschläge für Places
  */
 public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterable {
 
-    public static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
-
+    private static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
     private static final String PLACES_AUTOCOMPLETE_API = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+    private static final HttpTransport HTTP_TRANSPORT = AndroidHttp.newCompatibleTransport();
+    private static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
     private GoogleApiClient mGoogleApiClient;
-
     private ArrayList<String> resultList;
-    static final HttpTransport HTTP_TRANSPORT = AndroidHttp.newCompatibleTransport();
-    static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
-    private LatLngBounds mBounds;
 
     public GooglePlacesHelper(Context context, int resource, GoogleApiClient mGoogleApiClient) {
         super(context, resource);
@@ -67,10 +63,7 @@ public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterab
             protected FilterResults performFiltering(CharSequence constraint) {
                 FilterResults filterResults = new FilterResults();
                 if (constraint != null) {
-                    // Retrieve the autocomplete results.
                     resultList = autocomplete(constraint.toString());
-
-                    // Assign the data to the FilterResults
                     filterResults.values = resultList;
                     filterResults.count = resultList.size();
                 }
@@ -88,11 +81,16 @@ public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterab
         };
         return filter;
     }
+
+    /**
+     * Sucht AutoComplete Vorschläge mit Hilfe der Google Places Autocomplete Api
+     * @param input - bereits getippte buchstaben
+     * @return Liste an Complete Vorschlägen
+     */
     private ArrayList<String> autocomplete(String input) {
-        ArrayList<String> resultList = new ArrayList<String>();
+        ArrayList<String> resultList = new ArrayList<>();
 
         try {
-
             HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(
                     new HttpRequestInitializer() {
                         @Override
@@ -121,7 +119,9 @@ public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterab
         return resultList;
     }
 
-
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class PlacesResult {
 
         @Key("predictions")
@@ -129,6 +129,9 @@ public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterab
 
     }
 
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class Prediction {
 
         @Key("description")

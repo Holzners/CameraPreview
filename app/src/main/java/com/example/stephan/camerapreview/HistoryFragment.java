@@ -11,6 +11,9 @@ import android.widget.AdapterView;
 import java.util.List;
 
 
+/**
+ * ListFragment zum Verlauf der letzten Zielführung
+ */
 public class HistoryFragment extends ListFragment {
     List<String>targets;
 
@@ -39,7 +42,9 @@ public class HistoryFragment extends ListFragment {
 
     }
 
-
+    /**
+     * Listener der bei Klick auf Listen Zeile neue Zielführung startet
+     */
     public class HistoryOnItemClickListener implements AdapterView.OnItemClickListener{
 
         @Override

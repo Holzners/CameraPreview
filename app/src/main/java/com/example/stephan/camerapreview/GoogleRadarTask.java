@@ -20,7 +20,9 @@ import java.net.URLEncoder;
 import java.util.List;
 
 /**
- * Created by Stephan on 05.07.15.
+ * Stellt Google Places Radarsearch request details Request für Name und Addressen der Ziele notwendig.
+ * Da Radarsearch nur ID und GeoLocation zurückgibt
+ * Async Task da Http Requests nicht im Main Thread ausgeführt werden dürfen
  */
 public class GoogleRadarTask extends AsyncTask {
 
@@ -35,6 +37,14 @@ public class GoogleRadarTask extends AsyncTask {
     private int radius;
     private CameraPreview main;
 
+    /**
+     * Konstruktor
+     * @param keyWord
+     * @param lat
+     * @param lng
+     * @param radius
+     * @param main
+     */
     public GoogleRadarTask(String keyWord, double lat, double lng , int radius, CameraPreview main){
         this.keyword = keyWord;
         this.lat = lat;
@@ -43,6 +53,11 @@ public class GoogleRadarTask extends AsyncTask {
         this.main = main;
     }
 
+    /**
+     * Stellt den RadarSearch GetRequest an die Places Api und liefert zusätzlich für jede Rückgabeort
+     * den Namen und die Addresse über den Details Request anschließend wird dir Camera anzeige initiert
+     * //TODO hier wäre ein BroadcastReciever schöner
+     */
     @Override
     protected Object doInBackground(Object[] params) {
         List<PlaceRadarSearch> resultList = null;
@@ -83,6 +98,10 @@ public class GoogleRadarTask extends AsyncTask {
         return null;
     }
 
+/**
+ * Stellt Google Places Details Request (für Name und Addressen der Ziele notwendig,
+ * Da Radarsearch nur ID und GeoLocation zurückgibt)
+ */
     public static PlaceDetails details(String place_id) {
         try {
             HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(
@@ -113,8 +132,9 @@ public class GoogleRadarTask extends AsyncTask {
         }
     }
 
-
-
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class PlaceRadarSearchList {
 
         @Key("results")
@@ -122,7 +142,9 @@ public class GoogleRadarTask extends AsyncTask {
 
     }
 
-
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class PlaceRadarSearch {
 
         @Key("geometry")
@@ -140,6 +162,9 @@ public class GoogleRadarTask extends AsyncTask {
 
     }
 
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class GeoLocation {
 
         @Key("location")
@@ -157,7 +182,9 @@ public class GoogleRadarTask extends AsyncTask {
 
     }
 
-
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class PlaceResults {
 
         @Key("result")
@@ -165,6 +192,9 @@ public class GoogleRadarTask extends AsyncTask {
 
     }
 
+    /**
+     * Statische Klasse dient zum einfachen JSONParsen der Get Response
+     */
     public static class PlaceDetails {
 
         @Key("formatted_address")
