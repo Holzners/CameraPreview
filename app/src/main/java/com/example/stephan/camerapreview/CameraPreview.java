@@ -2,7 +2,10 @@ package com.example.stephan.camerapreview;
 
 
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -16,7 +19,6 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.animation.Animation;
@@ -74,6 +76,7 @@ public class CameraPreview extends FragmentActivity implements
     private List<Location> locationsList;
     private World world;
     private HashMap<Location, GeoObject> locationGeoObjectHashMap;
+    private List<GoogleRadarTask.PlaceRadarSearch> radarSearchList;
 
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
@@ -95,6 +98,7 @@ public class CameraPreview extends FragmentActivity implements
     private ImageView mPointer;
     private Button backButton, refreshButton;
 
+    private BroadcastReceiver broadcastReceiver;
     private GpsFilter gpsFilter;
 
     @Override
@@ -127,6 +131,21 @@ public class CameraPreview extends FragmentActivity implements
 
         backToStartScreen(null);
         initLocationListener();
+
+        broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Bundle bundle = intent.getExtras();
+                if (bundle != null) {
+                    String tag = bundle.getString(getResources().getString(R.string.key_ar_event_caluclated));
+                    if(tag.equals(getResources().getString(R.string.tag_broadcast_directions))){
+                        updateLocations();
+                    }else if(tag.equals(getResources().getString(R.string.tag_broadcast_radarsearch))){
+                        processRadarData();
+                    }
+                }
+            }
+        };
     }
 
     /**
@@ -173,6 +192,8 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     protected void onResume() {
         super.onResume();
+        registerReceiver(broadcastReceiver, new IntentFilter(GoogleRadarTask.RADAR_TASK_INTENTFILTER));
+        registerReceiver(broadcastReceiver, new IntentFilter(DirectionFetcher.DIRECTION_TASK_INTENTFILTER));
         BeyondarLocationManager.enable();
         initLocationListener();
     }
@@ -180,6 +201,7 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     protected void onPause() {
         super.onPause();
+        unregisterReceiver(broadcastReceiver);
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
         BeyondarLocationManager.disable();
@@ -329,13 +351,13 @@ public class CameraPreview extends FragmentActivity implements
             location = nextLocation;
         }
         this.countToSelect = locationsList.size();
-        updateLocations();
     }
 
     /**
      * Initialisiert die Geoobjekte in der 3D Welt
      */
     private void updateLocations() {
+        collectedText.setText(0 + "/" + countToSelect);
         for (Location l : locationsList) {
 
             GeoObject go = new GeoObject(1l);
@@ -382,15 +404,12 @@ public class CameraPreview extends FragmentActivity implements
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.d("New Location", location.getLatitude() + " " + location.getLongitude());
-        Log.d("new Distance" , "" + location.distanceTo(mLastLocation));
         LatLng latLng = gpsFilter.filterGpsData(location.getLatitude(), location.getLongitude(),
                 location.getAccuracy(), System.currentTimeMillis());
 
         Location location1 = new Location(LOCATION_SERVICE);
         location1.setLongitude(latLng.longitude);
         location1.setLatitude(latLng.latitude);
-        Log.d("smoothed Distance", "" + location1.distanceTo(mLastLocation));
         mLastLocation.setLongitude(latLng.longitude);
         mLastLocation.setLatitude(latLng.latitude);
 
@@ -511,7 +530,7 @@ public class CameraPreview extends FragmentActivity implements
             frame.addView(mPointer);
             backButton.setVisibility(View.VISIBLE);
             refreshButton.setVisibility(View.VISIBLE);
-            new GoogleRadarTask(keyWord, mLastLocation.getLatitude(), mLastLocation.getLongitude(),1000, this).execute();
+            new GoogleRadarTask(keyWord, mLastLocation.getLatitude(), mLastLocation.getLongitude(),500, this).execute();
             progressDialog = ProgressDialog.show(this, "Processing",
                     "find places", true);;
         }else {
@@ -519,19 +538,22 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
+    public void setRadarSearchList(List<GoogleRadarTask.PlaceRadarSearch> resultList){
+        this.radarSearchList = resultList;
+    }
+
     /**
      * Verarbeitet die Response der Google Places Api RadarSearch Requests
      * Erstellt für jeden Places Eintrag ein neues Geoobject
-     * @param resultList
      */
-    public void processRadarData(List<GoogleRadarTask.PlaceRadarSearch> resultList){
+    public void processRadarData(){
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.pfeil);
         locationGeoObjectHashMap.clear();
         locationsList = new ArrayList<>();
 
-        for (GoogleRadarTask.PlaceRadarSearch p : resultList) {
+        for (GoogleRadarTask.PlaceRadarSearch p : radarSearchList) {
             Location l = new Location(LOCATION_SERVICE);
             l.setLatitude(p.geoLocation.location.lat);
             l.setLongitude(p.geoLocation.location.lng);
@@ -546,12 +568,12 @@ public class CameraPreview extends FragmentActivity implements
         //den Objekte TextOverlays zuweisen
         replaceImagesByStaticViews(world);
         //Smothing der Sensordaten
-        LowPassFilter.ALPHA = 0.04f;
+        LowPassFilter.ALPHA = 0.08f;
         //Nur objekte bis 1500 meter entfernung rendern
-        mBeyondarFragment.setMaxDistanceToRender(1500);
+        mBeyondarFragment.setMaxDistanceToRender(1000);
         //Alle Objekte sollen zwischen 15 und 20 Meter "entfernt wirken"
         mBeyondarFragment.setPullCloserDistance(20);
-        mBeyondarFragment.setPushAwayDistance(15);
+        mBeyondarFragment.setPushAwayDistance(20);
         mBeyondarFragment.setWorld(world);
         mBeyondarFragment.setOnClickBeyondarObjectListener(this);
         progressDialog.dismiss();

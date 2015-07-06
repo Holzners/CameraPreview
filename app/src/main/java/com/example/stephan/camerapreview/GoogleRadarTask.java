@@ -1,5 +1,6 @@
 package com.example.stephan.camerapreview;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -26,6 +27,7 @@ import java.util.List;
  */
 public class GoogleRadarTask extends AsyncTask {
 
+    public static final String RADAR_TASK_INTENTFILTER = "com.example.stephan.camerapreview.RadarFilter";
     private static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
     private static final String PLACES_SEARCH_API = "https://maps.googleapis.com/maps/api/place/radarsearch/json";
     private static final String PLACES_DETAILS_API = "https://maps.googleapis.com/maps/api/place/details/json";
@@ -56,7 +58,6 @@ public class GoogleRadarTask extends AsyncTask {
     /**
      * Stellt den RadarSearch GetRequest an die Places Api und liefert zusätzlich für jede Rückgabeort
      * den Namen und die Addresse über den Details Request anschließend wird dir Camera anzeige initiert
-     * //TODO hier wäre ein BroadcastReciever schöner
      */
     @Override
     protected Object doInBackground(Object[] params) {
@@ -93,7 +94,13 @@ public class GoogleRadarTask extends AsyncTask {
             Log.e("Error", "Error processing Request results", ie);
         }
 
-        main.processRadarData(resultList);
+        main.setRadarSearchList(resultList);
+
+        Intent intent = new Intent(RADAR_TASK_INTENTFILTER);
+        intent.putExtra(main.getResources().getString(R.string.key_ar_event_caluclated),
+                main.getResources().getString(R.string.tag_broadcast_radarsearch));
+
+        main.sendBroadcast(intent);
 
         return null;
     }

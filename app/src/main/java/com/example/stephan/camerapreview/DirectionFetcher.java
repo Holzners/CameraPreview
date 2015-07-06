@@ -1,5 +1,6 @@
 package com.example.stephan.camerapreview;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -27,6 +28,8 @@ import java.util.List;
  */
 public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
 
+    public static final String DIRECTION_TASK_INTENTFILTER = "com.example.stephan.camerapreview.DirectionFilter";
+
     private List<LatLng> latLngs = new ArrayList<LatLng>();
 
     static final HttpTransport HTTP_TRANSPORT = AndroidHttp.newCompatibleTransport();
@@ -46,7 +49,6 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
     /**
      * Stellt den Routenberechnungs GetRequest an die Directions Api
      * anschließend werden die LatLng s der POI an die MainActivity übergeben
-     * //TODO hier wäre ein BroadcastReciever schöner
      */
     protected String doInBackground(URL... urls) {
         try {
@@ -71,6 +73,12 @@ public class DirectionFetcher extends AsyncTask<URL, Integer, String> {
             latLngs = PolyUtil.decode(encodedPoints);
 
             preview.setLatLng(latLngs);
+
+            Intent intent = new Intent(DIRECTION_TASK_INTENTFILTER);
+            intent.putExtra(preview.getResources().getString(R.string.key_ar_event_caluclated),
+                    preview.getResources().getString(R.string.tag_broadcast_directions));
+
+            preview.sendBroadcast(intent);
 
         } catch (Exception ex) {
             ex.printStackTrace();
