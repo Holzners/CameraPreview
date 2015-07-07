@@ -28,7 +28,7 @@ import java.util.List;
  * Adapter Klasse füllt ListView an Suchvorschlägen:
  * verbindet mit Google Places und gibt Auto Complete Vorschläge für Places
  */
-public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterable {
+public class AutoComplete extends ArrayAdapter<String> implements Filterable {
 
     private static final String PLACES_API_KEY = "AIzaSyBgduUQoaBJbTUmL9lOlUlaQmHbswuHNSk";
     private static final String PLACES_AUTOCOMPLETE_API = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
@@ -39,7 +39,7 @@ public class GooglePlacesHelper extends ArrayAdapter<String> implements Filterab
     private ArrayList<String> resultList;
 
 
-    public GooglePlacesHelper(Context context, int resource, GoogleApiClient mGoogleApiClient) {
+    public AutoComplete(Context context, int resource, GoogleApiClient mGoogleApiClient) {
         super(context, resource);
         this.mGoogleApiClient = mGoogleApiClient;
         Log.d("Adapter", "Adapter init");

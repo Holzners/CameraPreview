@@ -48,7 +48,7 @@ public class StartScreenFragment extends Fragment{
             }
         });
         // Google Places Helper als Adapter setzten zur Autocomplete
-        destinationText.setAdapter(new GooglePlacesHelper(getActivity(), android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
+        destinationText.setAdapter(new AutoComplete(getActivity(), android.R.layout.simple_dropdown_item_1line, mGoogleApiClient));
         Button button = (Button) getView().findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
