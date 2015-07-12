@@ -99,7 +99,7 @@ public class CameraPreview extends FragmentActivity implements
     private Button backButton, refreshButton;
 
     private BroadcastReceiver broadcastReceiver;
-    private GpsFilter gpsFilter;
+    private Filter mFilter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -108,7 +108,7 @@ public class CameraPreview extends FragmentActivity implements
 
         buildGoogleApiClient();
 
-        gpsFilter = new GpsFilter();
+        mFilter = new Filter();
         mPointer = (ImageView) findViewById(R.id.imageView);
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -132,6 +132,7 @@ public class CameraPreview extends FragmentActivity implements
         backToStartScreen(null);
         initLocationListener();
 
+        //Receiver zur Kommunikation mit AsyncTasks
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -192,6 +193,7 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     protected void onResume() {
         super.onResume();
+        //RegisterReceiver and Locationlistener
         registerReceiver(broadcastReceiver, new IntentFilter(GoogleRadarTask.RADAR_TASK_INTENTFILTER));
         registerReceiver(broadcastReceiver, new IntentFilter(DirectionFetcher.DIRECTION_TASK_INTENTFILTER));
         BeyondarLocationManager.enable();
@@ -201,11 +203,13 @@ public class CameraPreview extends FragmentActivity implements
     @Override
     protected void onPause() {
         super.onPause();
+        //UnRegisterReceiver and Locationlistener
         unregisterReceiver(broadcastReceiver);
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
         BeyondarLocationManager.disable();
         locationManager.removeUpdates(this);
+        //Clear tmp Image folder
         cleanTempFolder();
     }
 
@@ -214,6 +218,7 @@ public class CameraPreview extends FragmentActivity implements
      * @param destination
      */
     public void newNavigation(String destination) {
+        //Store new Destination in Shared Preferences String set for last targets
         SharedPreferences preferences = getPreferences(Context.MODE_PRIVATE);
         Set<String> targets = new HashSet<>();
         targets.addAll(preferences.getStringSet(KEY_HISTORY, new HashSet<String>()));
@@ -221,6 +226,11 @@ public class CameraPreview extends FragmentActivity implements
         SharedPreferences.Editor editor = preferences.edit();
         editor.putStringSet(KEY_HISTORY,targets).commit();
 
+        // Wait Dialog
+        progressDialog = ProgressDialog.show(this, "Processing",
+                "calculate route", true);
+
+        //Init Compass and Button
         FrameLayout frame = (FrameLayout) findViewById(R.id.contentPanel);
         frame.addView(mPointer);
         backButton.setVisibility(View.VISIBLE);
@@ -230,11 +240,10 @@ public class CameraPreview extends FragmentActivity implements
         collectedText.setVisibility(View.VISIBLE);
         this.destination = destination;
 
+        //Start Navigation
         if (mLastLocation != null) startNavigation(destination);
 
-        progressDialog = ProgressDialog.show(this, "Processing",
-                "calculate route", true);
-
+        //Switch to ar Fragment
         addBeyondArFragment();
     }
 
@@ -265,72 +274,9 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
-    @Override
-    public void onConnectionSuspended(int cause) {
-        mGoogleApiClient.connect();
-    }
 
-    /**
-     * Eigener Sensor Listener für Kompassrotation
-     */
-    @Override
-    public void onSensorChanged(SensorEvent event) {
 
-        if (event.sensor == mAccelerometer) {
-            mLastAccelerometer = lowPass(event.values.clone(), mLastAccelerometer);
-            // arraycopy (source, IndexBegin, target, IndexBegin, length)
 
-            mLastAccelerometerSet = true;
-            // catches changes registered by the Magnetometer
-        } else if (event.sensor == mMagnetometer) {
-            mLastMagnetometer = lowPass(event.values.clone(), mLastMagnetometer);
-            mLastMagnetometerSet = true;
-        }
-        /*
-        * RotationMatrix, Conversion to rotation of the 2-dimensional arrow
-       */
-        if (mLastAccelerometerSet && mLastMagnetometerSet) {
-            SensorManager.getRotationMatrix(mR, event.values.clone(), mLastAccelerometer, mLastMagnetometer);
-            SensorManager.remapCoordinateSystem(mR, SensorManager.AXIS_X, SensorManager.AXIS_Z, mR);
-            SensorManager.getOrientation(mR, mOrientation);
-
-            float azimuthInRadians = mOrientation[0];
-            float azimuthInDegress = (float) (Math.toDegrees(azimuthInRadians) + 360) % 360;
-            RotateAnimation ra = new RotateAnimation(
-                    mCurrentDegree,
-                    -azimuthInDegress,
-                    Animation.RELATIVE_TO_SELF, 0.5f,
-                    Animation.RELATIVE_TO_SELF,
-                    0.5f);
-
-            ra.setDuration(250);
-
-            ra.setFillAfter(true);
-            if (mPointer != null) {
-                mPointer.startAnimation(ra);
-                mCurrentDegree = -azimuthInDegress;
-            }
-        }
-
-    }
-
-    /**
-     * LowPass Filter zum glätten der Sensor Daten
-     * @param input
-     * @param output
-     * @return
-     */
-    private float[] lowPass(float[] input, float[] output) {
-        final float ALPHA = 0.1f;
-
-        if (output == null) return input;
-
-        for (int i = 0; i < input.length; i++) {
-            if (Math.abs(Math.toDegrees(output[i]) - Math.toDegrees(input[i])) > 9)
-                output[i] = output[i] + ALPHA * (input[i] - output[i]);
-        }
-        return output;
-    }
 
     /**
      * Setzt Liste an Routenpunkte für Zielführung
@@ -343,11 +289,13 @@ public class CameraPreview extends FragmentActivity implements
         location.setLongitude(tmp.longitude);
 
         locationsList = new ArrayList<>();
+        //Transform LatLngs to Location objects
         for (int i = 0; i < latLngs.size(); i++) {
             Location nextLocation = new Location(LOCATION_SERVICE);
             nextLocation.setLatitude(latLngs.get(i).latitude);
             nextLocation.setLongitude(latLngs.get(i).longitude);
-            splitDistanceToLowerThan10m(location, nextLocation, locationsList);
+            //Check if distance beetween two Points is to big
+            splitDistanceToLowerThan20m(location, nextLocation, locationsList);
             location = nextLocation;
         }
         this.countToSelect = locationsList.size();
@@ -359,21 +307,26 @@ public class CameraPreview extends FragmentActivity implements
     private void updateLocations() {
         collectedText.setText(0 + "/" + countToSelect);
         for (Location l : locationsList) {
-
+            //new Geobject
             GeoObject go = new GeoObject(1l);
-
+            //set Texture
             if (locationsList.size() - 1 > locationsList.indexOf(l)) go.setImageResource(R.drawable.ic_marker);
             else go.setImageResource(R.drawable.pfeil);
-
+            //set Name
             go.setName("position");
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
-
+            // map GeoObject with Location
             locationGeoObjectHashMap.put(l, go);
+            // add to World
             world.addBeyondarObject(go);
         }
-        LowPassFilter.ALPHA = 0.09f;
+        //Filter value for smoothing ArOverlays Sensor data
+        LowPassFilter.ALPHA = 0.07f;
+        //set World
         mBeyondarFragment.setWorld(world);
+        //Dismiss Wait Dialog
         progressDialog.dismiss();
+        //Register Listener for Compass must be done after init AR World otherwise BeyondAr blocked
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
@@ -385,7 +338,7 @@ public class CameraPreview extends FragmentActivity implements
      * @param dest
      * @param result
      */
-    private void splitDistanceToLowerThan10m(Location start, Location dest, List<Location> result) {
+    private void splitDistanceToLowerThan20m(Location start, Location dest, List<Location> result) {
         if (!result.contains(start)) result.add(start);
         if (!result.contains(dest)) result.add(dest);
         if (start.distanceTo(dest) > 20) {
@@ -397,26 +350,28 @@ public class CameraPreview extends FragmentActivity implements
             }
             midLocation.setLatitude(lat3);
             midLocation.setLongitude(lon3);
-            splitDistanceToLowerThan10m(start, midLocation, result);
-            splitDistanceToLowerThan10m(midLocation, dest, result);
+            splitDistanceToLowerThan20m(start, midLocation, result);
+            splitDistanceToLowerThan20m(midLocation, dest, result);
         }
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        LatLng latLng = gpsFilter.filterGpsData(location.getLatitude(), location.getLongitude(),
+        //smooth gps Data
+        LatLng latLng = mFilter.filterGpsData(location.getLatitude(), location.getLongitude(),
                 location.getAccuracy(), System.currentTimeMillis());
 
-        Location location1 = new Location(LOCATION_SERVICE);
-        location1.setLongitude(latLng.longitude);
-        location1.setLatitude(latLng.latitude);
+        //smoothed location == new last USer Location
         mLastLocation.setLongitude(latLng.longitude);
         mLastLocation.setLatitude(latLng.latitude);
 
         if (destination != null && !destination.equals("")) {
             if (!isNavigationInit) startNavigation(destination);
 
-            world.setLocation(location);
+            //Update ArWorlds Coordinate (Users Location) in AR Overlay
+            world.setLocation(mLastLocation);
+
+            //Check if user reached polyline GeoPoint
             if (locationsList != null) {
                 int index = -1;
                 for (int i = 0; i < 10 && i < locationsList.size(); i++) {
@@ -425,9 +380,11 @@ public class CameraPreview extends FragmentActivity implements
                         break;
                     }
                 }
+                //Reset Geobjects location
                 for (Map.Entry<Location, GeoObject> e : locationGeoObjectHashMap.entrySet()) {
                     e.getValue().setLocation(e.getKey());
                 }
+                //Remove passed objects
                 if (index != -1) {
                     for (int i = 0; i <= index; i++) {
                         world.remove(locationGeoObjectHashMap.get(locationsList.get(0)));
@@ -475,20 +432,23 @@ public class CameraPreview extends FragmentActivity implements
      */
     public void backToStartScreen(View view) {
         destination = "";
+        //Hide View Elements
         FrameLayout fl = (FrameLayout) findViewById(R.id.contentPanel);
         fl.removeView(mPointer);
         collectedText.setVisibility(View.GONE);
         backButton.setVisibility(View.INVISIBLE);
         refreshButton.setVisibility(View.INVISIBLE);
+        //Clear all Elements in Wolrd and Map
+        locationGeoObjectHashMap.clear();
         world.clearWorld();
 
         if (findViewById(R.id.destinationText).getVisibility() == View.VISIBLE)
             findViewById(R.id.destinationText).setVisibility(View.INVISIBLE);
 
+        //unregister Sensor Listener
         mSensorManager.unregisterListener(this, mAccelerometer);
         mSensorManager.unregisterListener(this, mMagnetometer);
-
-
+        //switch fragements
         StartScreenFragment startScreenFragment = StartScreenFragment.newInstance(mGoogleApiClient);
         FragmentManager fm = getSupportFragmentManager();
         fm.beginTransaction().replace(R.id.fragmentContainer, startScreenFragment).commit();
@@ -505,15 +465,15 @@ public class CameraPreview extends FragmentActivity implements
 
     /**
      * Zieht letzte Ziele aus Shared Preferences und lässt diese in neuem Fragment anzeigen
-     * TODO SharedPreferences Einträge mit Integer und Strings loopen da Sets keine Sortierung kennen
      * @param view
      */
     public void lastTargets(View view){
+        //get stored Targets
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         Set<String> targets = prefs.getStringSet(KEY_HISTORY, new HashSet<String>());
         List<String> targetList = new ArrayList<>();
         targetList.addAll(targets);
-
+        //Switch fragments
         HistoryFragment fragment = HistoryFragment.newInstance(targetList);
         FragmentManager fm = getSupportFragmentManager();
         fm.beginTransaction().replace(R.id.fragmentContainer, fragment).commit();
@@ -525,14 +485,20 @@ public class CameraPreview extends FragmentActivity implements
      */
     public void radarSearch(String keyWord){
         if(mLastLocation != null) {
+            //Wait dialog
+            progressDialog = ProgressDialog.show(this, "Processing",
+                    "find places", true);;
+            //Switch to Ar Fragment
             addBeyondArFragment();
+            //Init Compass and Buttons
             FrameLayout frame = (FrameLayout) findViewById(R.id.contentPanel);
             frame.addView(mPointer);
             backButton.setVisibility(View.VISIBLE);
             refreshButton.setVisibility(View.VISIBLE);
+            //start AsyncTask
             new GoogleRadarTask(keyWord, mLastLocation.getLatitude(), mLastLocation.getLongitude(),500, this).execute();
-            progressDialog = ProgressDialog.show(this, "Processing",
-                    "find places", true);;
+
+
         }else {
             Toast.makeText(this, "No Location found", Toast.LENGTH_SHORT).show();
         }
@@ -547,6 +513,7 @@ public class CameraPreview extends FragmentActivity implements
      * Erstellt für jeden Places Eintrag ein neues Geoobject
      */
     public void processRadarData(){
+        //Init AR World
         world = new World(this);
         world.setLocation(mLastLocation);
         world.setDefaultImage(R.drawable.pfeil);
@@ -554,14 +521,23 @@ public class CameraPreview extends FragmentActivity implements
         locationsList = new ArrayList<>();
 
         for (GoogleRadarTask.PlaceRadarSearch p : radarSearchList) {
+            //Get Location from SearchResponse
             Location l = new Location(LOCATION_SERVICE);
             l.setLatitude(p.geoLocation.location.lat);
             l.setLongitude(p.geoLocation.location.lng);
             locationsList.add(l);
+            //get Name, Address from SearchResponse
             String title = p.name + "\n" + p.address + "\n"  + (int)l.distanceTo(mLastLocation) + " m";
+            //new GeoObject
             GeoObject go = new GeoObject(1l);
+            //Name contains:
+            //Locations name
+            //Address
+            //Distance to User
             go.setName(title);
+            //Set Coordinates
             go.setGeoPosition(l.getLatitude(), l.getLongitude());
+            //Put in Map and add to AR Overlay
             locationGeoObjectHashMap.put(l,go);
             world.addBeyondarObject(go);
         }
@@ -571,12 +547,16 @@ public class CameraPreview extends FragmentActivity implements
         LowPassFilter.ALPHA = 0.08f;
         //Nur objekte bis 1500 meter entfernung rendern
         mBeyondarFragment.setMaxDistanceToRender(1000);
-        //Alle Objekte sollen zwischen 15 und 20 Meter "entfernt wirken"
+        //Alle Objekte sollen zwischen 20 und 20 Meter "entfernt wirken"
         mBeyondarFragment.setPullCloserDistance(20);
         mBeyondarFragment.setPushAwayDistance(20);
+        //Set World in Fragment
         mBeyondarFragment.setWorld(world);
+        //Add on Ar Object Click Listener
         mBeyondarFragment.setOnClickBeyondarObjectListener(this);
+        //Remove Progress Dialg
         progressDialog.dismiss();
+        //Register receiver
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_NORMAL);
 
@@ -597,6 +577,7 @@ public class CameraPreview extends FragmentActivity implements
 
                 String[] split = beyondarObject.getName().split("\n");
 
+                //Textview initialisieren
                 textView.setText(split[0] +"\n"+split[2] );
                 textView.setTextSize(14);
                 textView.setLayoutParams(new LinearLayout.LayoutParams(
@@ -611,6 +592,7 @@ public class CameraPreview extends FragmentActivity implements
 
 
                 try{
+                    //Textview zu Bitmap
                     String[] nameSplit = beyondarObject.getName().split("\n");
                     String imageName = "viewImage_"+ nameSplit[0] + ".png";
                     FileOutputStream file = new FileOutputStream(new File(path, imageName));
@@ -621,7 +603,7 @@ public class CameraPreview extends FragmentActivity implements
                     b.compress(Bitmap.CompressFormat.PNG, 100, file);
                     file.close();
                     b.recycle();
-
+                    //set Texture for ARObject
                     beyondarObject.setImageUri(path+imageName);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -646,6 +628,55 @@ public class CameraPreview extends FragmentActivity implements
         }
     }
 
+    @Override
+    public void onConnectionSuspended(int cause) {
+        mGoogleApiClient.connect();
+    }
+
+    /**
+     * Eigener Sensor Listener für Kompassrotation
+     */
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+
+        if (event.sensor == mAccelerometer) {
+            mLastAccelerometer = mFilter.lowPass(event.values.clone(), mLastAccelerometer);
+            // arraycopy (source, IndexBegin, target, IndexBegin, length)
+
+            mLastAccelerometerSet = true;
+            // catches changes registered by the Magnetometer
+        } else if (event.sensor == mMagnetometer) {
+            mLastMagnetometer = mFilter.lowPass(event.values.clone(), mLastMagnetometer);
+            mLastMagnetometerSet = true;
+        }
+        /*
+        * RotationMatrix, Conversion to rotation of the 2-dimensional arrow
+       */
+        if (mLastAccelerometerSet && mLastMagnetometerSet) {
+            SensorManager.getRotationMatrix(mR, event.values.clone(), mLastAccelerometer, mLastMagnetometer);
+            SensorManager.remapCoordinateSystem(mR, SensorManager.AXIS_X, SensorManager.AXIS_Z, mR);
+            SensorManager.getOrientation(mR, mOrientation);
+
+            float azimuthInRadians = mOrientation[0];
+            float azimuthInDegress = (float) (Math.toDegrees(azimuthInRadians) + 360) % 360;
+            RotateAnimation ra = new RotateAnimation(
+                    mCurrentDegree,
+                    -azimuthInDegress,
+                    Animation.RELATIVE_TO_SELF, 0.5f,
+                    Animation.RELATIVE_TO_SELF,
+                    0.5f);
+
+            ra.setDuration(250);
+
+            ra.setFillAfter(true);
+            if (mPointer != null) {
+                mPointer.startAnimation(ra);
+                mCurrentDegree = -azimuthInDegress;
+            }
+        }
+
+    }
+
     /**
      * Click auf GeoObjekt im Radar Modus startet Navigation zum Ort
      * @param beyondarObjects
@@ -662,8 +693,9 @@ public class CameraPreview extends FragmentActivity implements
 
     /**
      * einfacher Kalman Filter zum Glätten ungenauer Gps Daten
+     * Lowpassfilter zum Senosr filtern
      */
-    public class GpsFilter {
+    public class Filter {
         private final float MIN_ACCURACY = 1;
         private float variance = -1;
         private float metres_per_second_walking = 2;
@@ -672,7 +704,7 @@ public class CameraPreview extends FragmentActivity implements
         private double lng;
 
         /**
-         * Methode zum filtern Ungenauer Gps Messungen
+         * Methode zum filtern Ungenauer Gps Messungenxs
          * @param lat_measurement - latitude der letzen Messung
          * @param lng_measurement - longitude der letzen Messung
          * @param accuracy - Genauigkeit der letzten Messung
@@ -712,6 +744,24 @@ public class CameraPreview extends FragmentActivity implements
                 variance = (1 - K) * variance;
             }
             return new LatLng(lat, lng);
+        }
+
+        /**
+         * LowPass Filter zum glätten der Sensor Daten
+         * @param input
+         * @param output
+         * @return
+         */
+        private float[] lowPass(float[] input, float[] output) {
+            final float ALPHA = 0.1f;
+
+            if (output == null) return input;
+
+            for (int i = 0; i < input.length; i++) {
+                if (Math.abs(Math.toDegrees(output[i]) - Math.toDegrees(input[i])) > 9)
+                    output[i] = output[i] + ALPHA * (input[i] - output[i]);
+            }
+            return output;
         }
     }
 
